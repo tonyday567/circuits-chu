@@ -1,0 +1,48 @@
+cabal-version: 3.0
+name: circuits-chu
+version: 0.3.0.0
+license: BSD-3-Clause
+license-file: LICENSE
+synopsis: Chu construction for circuits
+description:
+  The Chu construction and its linear-logic connectives, built on top of the
+  circuits substrate.  This package is intentionally separate: Chu is a
+  star-autonomous model, not part of the circuit substrate itself.
+
+build-type: Simple
+
+common ghc-options-stanza
+  ghc-options:
+    -Wall
+    -Wno-unused-imports
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Wredundant-constraints
+
+library
+  import: ghc-options-stanza
+  default-language: GHC2024
+  hs-source-dirs: src
+  exposed-modules:
+    Circuit.Chu
+
+  build-depends:
+    base >=4.18 && <5,
+    circuits,
+    profunctors >=5.0 && <6,
+    these >=1.2.1 && <1.3,
+
+executable circuits-chu-axioma
+  import: ghc-options-stanza
+  default-language: GHC2024
+  main-is: axioma.hs
+  hs-source-dirs: app
+  build-depends:
+    base >=4.18 && <5,
+    circuits,
+    circuits-chu,
+    circuits:{circuits-test-utils},
+    these >=1.2.1 && <1.3,
