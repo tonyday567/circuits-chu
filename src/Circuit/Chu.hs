@@ -144,6 +144,7 @@ where
 
 import Circuit.Category (Category (..), Ob, ObDict (..))
 import Circuit.Channel (Channel (..))
+import Circuit.Dagger (CopyT (..), DiscardT (..))
 import Circuit.Ends (Ends (..), In (..), Out (..), close, companion, conjoint)
 import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), Tensor (..), Unit, WhyNotIntro (..), WhyNotMonoid (..))
 import Data.Kind (Type)
@@ -1610,12 +1611,22 @@ instance WhyNotIntro (ChuOTensor r) (OChu r) where
 
 -- | The @?@-monoid as a 'WhyNotMonoid' on 'OChu'.
 --
--- The @!@-comonoid is given by 'BangCopy' / 'BangWeaken'; the
--- 'Circuit.Dagger.Copy' / 'Discard' classes hard-code the cartesian pair
--- and unit, which do not match the tensor object tags of 'OChu'.
+-- The @!@-comonoid is given by 'BangCopy' / 'BangWeaken'; the cartesian
+-- 'Circuit.Dagger.Copy' / 'Discard' classes hard-code the Haskell pair and
+-- unit and cannot be instantiated for 'OChu'.  The tensor-generic
+-- 'Circuit.Dagger.CopyT' / 'DiscardT' classes below are the fix: they use
+-- the object-level tensor ('ChuOTensor') and unit ('ChuOUnit').
 instance (Ob (OChu r) a) => WhyNotMonoid (ChuOTensor r) (ChuOPar r) (OChu r) where
   mergeE = OChu (Chu mergeWhyNotParChu)
   zeroE = OChu (Chu zeroWhyNotParChu)
+
+-- | @!A@ carries a comonoid on the Chu tensor.
+instance (Ob (OChu r) a) => CopyT (ChuOTensor r) (OChu r) (ChuOBang r a) where
+  copyT = OChu (Chu copyBangChu)
+
+-- | @!A@ discards to the Chu tensor unit.
+instance (Ob (OChu r) a) => DiscardT (ChuOTensor r) (OChu r) (ChuOBang r a) where
+  discardT = OChu (Chu discardBangChu)
 
 -- ---------------------------------------------------------------------------
 -- Embedding from 'Circuit.Ends'

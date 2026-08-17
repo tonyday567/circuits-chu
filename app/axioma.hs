@@ -23,6 +23,7 @@ import Circuit.Net qualified as Net
 import Circuit.Poly (Dir, Eval (..), Mono, System, fromEvalSystem, lens, monoDir, monoIn, mooreSystem, runSystem, system)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
+import Circuit.Dagger (CopyT (..), DiscardT (..))
 import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Fire (..), Lolli (..), Par (..), Schedule (..), Shared (..), Tensor (..), WhyNotIntro (..), WhyNotMonoid (..), distL, distR, mix, sharedKnotBy, superpose)
 import Circuit.Test.Utils (approx, check)
 import Control.Arrow (Kleisli (..), runKleisli)
@@ -1649,6 +1650,22 @@ main = do
         check "OChu BangWeaken discardE agrees with discardBangChu on !ChuTwo" $
           let viaClass :: Chu.OChu Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOUnit Bool)
               viaClass = discardE @(Chu.ChuOTensor Bool) @(Chu.OChu Bool)
+              m1 = ochuToChuMorphism viaClass
+              m2 = Chu.discardBangChu
+           in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
+                && all (\k -> all (\a -> Chu.chuBackward m1 k a == Chu.chuBackward m2 k a) chuTwoPos) [True, False],
+        check "OChu CopyT copyT agrees with copyBangChu on !ChuTwo" $
+          let bangObj = Chu.bangChuObj chuTwo
+              viaClass :: Chu.OChu Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOTensor Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOBang Bool Chu.ChuTwo))
+              viaClass = copyT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuTwo)
+              tensNegs = chuTensorNegsExplicit chuTwoPos chuTwoFuns chuTwoPos chuTwoFuns bangObj bangObj
+              m1 = ochuToChuMorphism viaClass
+              m2 = Chu.copyBangChu
+           in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
+                && all (\n -> all (\a -> Chu.chuBackward m1 n a == Chu.chuBackward m2 n a) chuTwoPos) tensNegs,
+        check "OChu DiscardT discardT agrees with discardBangChu on !ChuTwo" $
+          let viaClass :: Chu.OChu Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOUnit Bool)
+              viaClass = discardT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuTwo)
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.discardBangChu
            in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
