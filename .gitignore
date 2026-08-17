@@ -1,0 +1,14 @@
+/.ghc.environment.aarch64-darwin-9.14.1
+/dist-newstyle/
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+.hie/
+dist-mcabal/
+.ghc.environment.*
+.sabela/
+.ghcid-output
+.ghcid-trigger
+
+/cabal.project.local*
