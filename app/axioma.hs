@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Main where
 
@@ -9,6 +10,7 @@ import Circuit.Boundary (Boundary (..), IsLinear, Linear (..), NotLinear, Stampe
 import Circuit.Category (id, (.), (.>))
 import Circuit.Channel (assoc, assoc', slide, strength, trace)
 import Circuit.ChannelPoly (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
+import Circuit.Chu (ChuObjShape (..), ChuObject (..))
 import Circuit.Chu qualified as Chu
 import Circuit.Dagger (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merge (..), MergeZero, Zero (..), transpose)
 import Circuit.Ends (Bias (..), Ends (..), HasDual (..), box, close, composeEnds0, copycat, ends, ends0, endsK, pairEnds, prefixIn, raceEnds, splay, splay0, suffixOut)
@@ -31,6 +33,7 @@ import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Kind (Type)
 import Data.List (foldl', isInfixOf, permutations, sort, uncons)
 import Data.Maybe (catMaybes, fromMaybe, isNothing)
+import Data.Monoid (Any (..))
 import Data.Proxy (Proxy (..))
 import Data.These (These (..), these)
 import Data.Tuple qualified as Tuple
@@ -167,6 +170,23 @@ chuObjPostInt = Chu.ChuObj (Pre.uncurry chuDelivers)
 -- | A tiny self-dual Chu object over @Bool@ with equality pairing.
 chuTwo :: Chu.ChuObj (,) Bool (->) Bool Bool
 chuTwo = Chu.ChuObj (Pre.uncurry (==))
+
+-- | A tiny self-dual Chu object over @Any@ (disjunction monoid) with equality
+-- pairing. Used to test the bimonoid on @!A@ from a 'Monoid' on @A⁺@.
+data ChuAny = ChuAny
+
+instance ChuObjShape ChuAny where
+  type ChuPosType ChuAny = Any
+  type ChuNegType ChuAny = Any
+
+instance ChuObject Bool ChuAny where
+  chuObject = Chu.ChuObj (\(Any x, Any y) -> x == y)
+  chuPosAll = [Any False, Any True]
+  chuNegAll = [Any False, Any True]
+
+instance Chu.ChuSeparated Bool ChuAny
+
+instance Chu.ChuExtensional Bool ChuAny
 
 -- | Negation as a Chu endomorphism of the self-dual @Bool@ object.
 chuNot :: Chu.ChuMorphism (,) Bool (->) Bool Bool Bool Bool
@@ -584,6 +604,13 @@ eqChuMorphismLolliEval m1 m2 =
 
 chuTwoFuns :: [Bool -> Bool]
 chuTwoFuns = Chu.chuFunctionals chuTwoPos [True, False]
+
+-- | Positive carrier and functionals for the @Any@-based Chu object.
+chuAnyPos :: [Any]
+chuAnyPos = Chu.chuPosAll @Bool @ChuAny
+
+chuAnyFuns :: [Any -> Bool]
+chuAnyFuns = Chu.chuFunctionals chuAnyPos [True, False]
 
 eqFun :: (Bool -> Bool) -> (Bool -> Bool) -> Bool
 eqFun f g = all (\a -> f a == g a) chuTwoPos
@@ -1670,6 +1697,35 @@ main = do
               m2 = Chu.discardBangChu
            in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
                 && all (\k -> all (\a -> Chu.chuBackward m1 k a == Chu.chuBackward m2 k a) chuTwoPos) [True, False],
+        check "OChu MergeT plusT agrees with mergeBangChu on !ChuAny" $
+          let viaClass :: Chu.OChu Bool (Chu.ChuOTensor Bool (Chu.ChuOBang Bool ChuAny) (Chu.ChuOBang Bool ChuAny)) (Chu.ChuOBang Bool ChuAny)
+              viaClass = plusT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool ChuAny)
+              m1 = ochuToChuMorphism viaClass
+              m2 = Chu.mergeBangChu
+              eqAnyFun f g = all (\x -> f x == g x) chuAnyPos
+              eqAnyTensorNeg n1 n2 =
+                all (\x -> eqAnyFun (Chu.ctnForward n1 x) (Chu.ctnForward n2 x)) chuAnyPos
+                  && all (\x -> eqAnyFun (Chu.ctnBackward n1 x) (Chu.ctnBackward n2 x)) chuAnyPos
+           in all (\p -> Chu.chuForward m1 p == Chu.chuForward m2 p) (enumCartesian chuAnyPos chuAnyPos)
+                && all (\k -> eqAnyTensorNeg (Chu.chuBackward m1 k) (Chu.chuBackward m2 k)) chuAnyFuns,
+        check "OChu ZeroT zeroT agrees with zeroBangChu on !ChuAny" $
+          let viaClass :: Chu.OChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOBang Bool ChuAny)
+              viaClass = zeroT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool ChuAny)
+              m1 = ochuToChuMorphism viaClass
+              m2 = Chu.zeroBangChu
+           in Chu.chuForward m1 () == Chu.chuForward m2 ()
+                && all (\k -> Chu.chuBackward m1 k == Chu.chuBackward m2 k) chuAnyFuns,
+        check "Chu mergeBangChu satisfies adjoint law on !ChuAny" $
+          let bangObj = Chu.bangChuObj (Chu.chuObject @Bool @ChuAny)
+              src = Chu.tensorChuObj bangObj bangObj
+              tgt = bangObj
+              pos = enumCartesian chuAnyPos chuAnyPos
+           in all (\p -> all (\k -> Chu.chuLaw src tgt Chu.mergeBangChu p k) chuAnyFuns) pos,
+        check "Chu zeroBangChu satisfies adjoint law on !ChuAny" $
+          let bangObj = Chu.bangChuObj (Chu.chuObject @Bool @ChuAny)
+              src = Chu.chuUnitObj
+              tgt = bangObj
+           in all (\k -> Chu.chuLaw src tgt Chu.zeroBangChu () k) chuAnyFuns,
         check "OChu WhyNotMonoid ?ChuTwo object shapes are inhabited" $
           let _ = undefined :: Chu.OChu Bool (Chu.ChuOPar Bool (Chu.ChuOWhyNot Bool Chu.ChuTwo) (Chu.ChuOWhyNot Bool Chu.ChuTwo)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
               _ = Chu.OChu (Chu.Chu Chu.zeroWhyNotParChu) :: Chu.OChu Bool (Chu.ChuONeg Bool (Chu.ChuOUnit Bool)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)

@@ -123,6 +123,8 @@ module Circuit.Chu
     whyNotChuObj,
     copyBangChu,
     discardBangChu,
+    mergeBangChu,
+    zeroBangChu,
     derelictChu,
     zeroWhyNotChu,
     introduceChu,
@@ -1385,6 +1387,32 @@ discardBangChu =
   ChuMorphism (\_ -> ()) const
 {-# INLINE discardBangChu #-}
 
+-- | Merge @!A ⊗ !A → !A@: the monoid operation on points, bilinearly
+-- extended to functionals.
+mergeBangChu ::
+  (Monoid a) =>
+  ChuMorphism
+    (,)
+    r
+    (->)
+    (a, a)
+    (ChuTensorNeg a (a -> r) a (a -> r))
+    a
+    (a -> r)
+mergeBangChu =
+  ChuMorphism
+    (uncurry (<>))
+    (\k -> ChuTensorNeg (\x y -> k (x <> y)) (\y x -> k (x <> y)))
+{-# INLINE mergeBangChu #-}
+
+-- | Zero @I → !A@: the monoid unit as a point of @A⁺@.
+zeroBangChu ::
+  (Monoid a) =>
+  ChuMorphism (,) r (->) () r a (a -> r)
+zeroBangChu =
+  ChuMorphism (\_ -> mempty) (\k -> k mempty)
+{-# INLINE zeroBangChu #-}
+
 -- | Dereliction @!A → A@: identity on points, Yoneda on negatives.
 derelictChu ::
   ChuObj (,) r (->) a b ->
@@ -1627,6 +1655,25 @@ instance (Ob (OChu r) a) => CopyT (ChuOTensor r) (OChu r) (ChuOBang r a) where
 -- | @!A@ discards to the Chu tensor unit.
 instance (Ob (OChu r) a) => DiscardT (ChuOTensor r) (OChu r) (ChuOBang r a) where
   discardT = OChu (Chu discardBangChu)
+
+-- | @!A@ merges two copies using a 'Monoid' on the positive carrier.
+--
+-- This is the missing half of the bimonoid on the modality: 'CopyT' and
+-- 'DiscardT' are free, while 'MergeT' and 'ZeroT' need a chosen monoid
+-- structure on @A⁺@.  For 'ChuTwo' with @A⁺ = Bool@ under disjunction,
+-- this gives a non-trivial Chu net that can be run/melt/sifted.
+instance
+  (Ob (OChu r) a, Monoid (ChuPosType a)) =>
+  MergeT (ChuOTensor r) (OChu r) (ChuOBang r a)
+  where
+  plusT = OChu (Chu mergeBangChu)
+
+-- | @!A@ receives the monoid unit as a point of the positive carrier.
+instance
+  (Ob (OChu r) a, Monoid (ChuPosType a)) =>
+  ZeroT (ChuOTensor r) (OChu r) (ChuOBang r a)
+  where
+  zeroT = OChu (Chu zeroBangChu)
 
 -- | The tensor unit carries the trivial bimonoid on the Chu tensor.
 --
