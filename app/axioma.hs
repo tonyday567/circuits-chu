@@ -23,7 +23,7 @@ import Circuit.Net qualified as Net
 import Circuit.Poly (Dir, Eval (..), Mono, System, fromEvalSystem, lens, monoDir, monoIn, mooreSystem, runSystem, system)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
-import Circuit.Dagger (CopyT (..), DiscardT (..))
+import Circuit.Dagger (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Fire (..), Lolli (..), Par (..), Schedule (..), Shared (..), Tensor (..), WhyNotIntro (..), WhyNotMonoid (..), distL, distR, mix, sharedKnotBy, superpose)
 import Circuit.Test.Utils (approx, check)
 import Control.Arrow (Kleisli (..), runKleisli)
@@ -1673,6 +1673,22 @@ main = do
         check "OChu WhyNotMonoid ?ChuTwo object shapes are inhabited" $
           let _ = undefined :: Chu.OChu Bool (Chu.ChuOPar Bool (Chu.ChuOWhyNot Bool Chu.ChuTwo) (Chu.ChuOWhyNot Bool Chu.ChuTwo)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
               _ = Chu.OChu (Chu.Chu Chu.zeroWhyNotParChu) :: Chu.OChu Bool (Chu.ChuONeg Bool (Chu.ChuOUnit Bool)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
+           in True,
+        -- Net wiring over Chu: the tensor-generic Net now accepts ChuOTensor
+        -- as its wiring product. The unit object has the trivial bimonoid on
+        -- the Chu tensor, so a Net using all four bimonoid rows typechecks.
+        check "Net ChuOTensor ChuOUnit bimonoid rows typecheck" $
+          let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
+              copyN = Net.Copy
+              discardN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
+              discardN = Net.Discard
+              plusN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOUnit Bool)
+              plusN = Net.Plus
+              zeroN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
+              zeroN = Net.Zero
+              swapN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
+              swapN = Net.Swap
+              _composed = plusN . copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
            in True
       ]
   if and results

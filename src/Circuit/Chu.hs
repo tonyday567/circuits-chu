@@ -144,7 +144,7 @@ where
 
 import Circuit.Category (Category (..), Ob, ObDict (..))
 import Circuit.Channel (Channel (..))
-import Circuit.Dagger (CopyT (..), DiscardT (..))
+import Circuit.Dagger (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Ends (Ends (..), In (..), Out (..), close, companion, conjoint)
 import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), Tensor (..), Unit, WhyNotIntro (..), WhyNotMonoid (..))
 import Data.Kind (Type)
@@ -1627,6 +1627,23 @@ instance (Ob (OChu r) a) => CopyT (ChuOTensor r) (OChu r) (ChuOBang r a) where
 -- | @!A@ discards to the Chu tensor unit.
 instance (Ob (OChu r) a) => DiscardT (ChuOTensor r) (OChu r) (ChuOBang r a) where
   discardT = OChu (Chu discardBangChu)
+
+-- | The tensor unit carries the trivial bimonoid on the Chu tensor.
+--
+-- For the unit object, the tensor product with itself is again the unit up
+-- to the left unitor, so copy/discard and merge/zero are all mediated by
+-- the unitors and identities.
+instance CopyT (ChuOTensor r) (OChu r) (ChuOUnit r) where
+  copyT = unitl'
+
+instance DiscardT (ChuOTensor r) (OChu r) (ChuOUnit r) where
+  discardT = id
+
+instance MergeT (ChuOTensor r) (OChu r) (ChuOUnit r) where
+  plusT = unitl
+
+instance ZeroT (ChuOTensor r) (OChu r) (ChuOUnit r) where
+  zeroT = id
 
 -- ---------------------------------------------------------------------------
 -- Embedding from 'Circuit.Ends'
