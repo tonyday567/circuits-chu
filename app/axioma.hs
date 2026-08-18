@@ -71,11 +71,9 @@ instance Circuit.Channel.Channel (Chu.ChuOTensor r) (ForwardChu r) where
   assoc = ForwardChu (\((x, y), z) -> (x, (y, z)))
   assoc' = ForwardChu (\(x, (y, z)) -> ((x, y), z))
   slide = ForwardChu (\(a, (b, c)) -> (b, (a, c)))
-  withTensorOb ObDict ObDict x = x
 
 instance Strength (Chu.ChuOTensor r) (ForwardChu r) where
   strength (ForwardChu f) = ForwardChu (\(a, b) -> (a, f b))
-  withStrengthOb ObDict ObDict ObDict x = x
 
 instance Traced (Chu.ChuOTensor r) (ForwardChu r) where
   trace (ForwardChu f) = ForwardChu (\x -> let (y, z) = f (y, x) in z)

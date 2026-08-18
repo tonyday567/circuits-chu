@@ -1133,7 +1133,6 @@ instance (Eq r) => Channel (ChuOTensor r) (OChu r) where
   assoc = OChu (Chu assocChu)
   assoc' = OChu (Chu assocChuInv)
   slide = OChu (Chu slideChu)
-  withTensorOb ObDict ObDict x = x
 
 -- | Double-negation unit @A → A⊥⊥@.
 --
