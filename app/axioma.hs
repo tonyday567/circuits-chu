@@ -7,8 +7,8 @@ module Main where
 
 import Circuit.Algebra qualified as Alg
 import Circuit.Boundary (Boundary (..), IsLinear, Linear (..), NotLinear, Stamped (..), isMark, isPayload)
-import Circuit.Category (id, (.), (.>))
-import Circuit.Channel (assoc, assoc', slide, strength, trace)
+import Circuit.Category (Category (..), ObDict (..), id, (.), (.>))
+import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
 import Circuit.ChannelPoly (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Chu (ChuObjShape (..), ChuObject (..))
 import Circuit.Chu qualified as Chu
@@ -18,7 +18,7 @@ import Circuit.Ends qualified as MedState
 import Circuit.FinRel
 import Circuit.Hyper (Hyper, observe)
 import Circuit.Hyper qualified as HyperLoop
-import Circuit.Layer (run)
+import Circuit.Layer (bind, run)
 import Circuit.Loop (Loop (..))
 import Circuit.Mediate (Debt (..), FlushableResidual (..), LinearResidual (..), LinearityViolation (..), Mediator (..), PS (..), closeCertified, closeCertifiedWith, closeCertifiedWithBy, count, linear, medComult, medCounit, mediateLoop, mediateProcess, mediateSharedBody, mediateSharedBodyChecked, pairSum, runMediator, runMediatorState, runSharedBodyChecked)
 import Circuit.Net qualified as Net
@@ -39,8 +39,79 @@ import Data.These (These (..), these)
 import Data.Tuple qualified as Tuple
 import Data.Void (Void, absurd)
 import GHC.TypeNats (KnownNat, natVal)
+import Unsafe.Coerce (unsafeCoerce)
 import Prelude hiding (curry, id, uncurry, (.))
 import Prelude qualified as Pre
+
+-- | Closed carrier family for Chu object tags.  Unlike 'Chu.ChuPosType',
+-- this family pattern-matches on the tag constructor, so GHC can reduce it
+-- in polymorphic 'Action'/'Channel'/'Traced' instance methods.
+type family ChuCarrier a :: Type where
+  ChuCarrier (Chu.ChuOUnit r) = ()
+  ChuCarrier (Chu.ChuOTensor r a b) = (ChuCarrier a, ChuCarrier b)
+  ChuCarrier (Chu.ChuOBang r a) = ChuCarrier a
+  ChuCarrier (Chu.ChuOWhyNot r a) = ChuCarrier a -> r
+  ChuCarrier (Chu.ChuONeg r a) = ChuCarrier a
+  ChuCarrier (Chu.ChuOLolli r a b) = ChuCarrier a -> ChuCarrier b
+  ChuCarrier (Chu.ChuOWith r a b) = (ChuCarrier a, ChuCarrier b)
+  ChuCarrier (Chu.ChuOPlus r a b) = Either (ChuCarrier a) (ChuCarrier b)
+  ChuCarrier (Chu.ChuOPar r a b) = Either (ChuCarrier a) (ChuCarrier b)
+  ChuCarrier Chu.ChuTwo = Bool
+  ChuCarrier Chu.ChuThree = Maybe Bool
+  ChuCarrier Chu.ChuDouble01 = Bool
+  ChuCarrier Chu.ChuDelivery = Bool
+
+-- | Forward-only Chu interpretation: objects are Chu object tags, morphisms
+-- are functions between their 'ChuCarrier' interpretations.  Used to test
+-- whether a Chu net can be interpreted into a traced target via 'Net.bind'
+-- without requiring 'Traced' on the source category.
+newtype ForwardChu (r :: Type) a b = ForwardChu (ChuCarrier a -> ChuCarrier b)
+
+instance Category (ForwardChu r) where
+  type Ob (ForwardChu r) a = ()
+  id = ForwardChu Pre.id
+  ForwardChu g . ForwardChu f = ForwardChu (g Pre.. f)
+
+instance Tensor (Chu.ChuOTensor r) (ForwardChu r) where
+  par (ForwardChu f) (ForwardChu g) = ForwardChu (unsafeCoerce (parFun (unsafeCoerce f) (unsafeCoerce g)))
+    where
+      parFun :: (a -> b) -> (c -> d) -> (a, c) -> (b, d)
+      parFun p q (x, y) = (p x, q y)
+  unitl = ForwardChu (unsafeCoerce (\((), a) -> a))
+  unitl' = ForwardChu (unsafeCoerce (\a -> ((), a)))
+  unitr = ForwardChu (unsafeCoerce (\(a, ()) -> a))
+  unitr' = ForwardChu (unsafeCoerce (\a -> (a, ())))
+
+instance Action (Chu.ChuOTensor r) (ForwardChu r) where
+  swap = ForwardChu (unsafeCoerce (\(a, b) -> (b, a)))
+
+instance Circuit.Channel.Channel (Chu.ChuOTensor r) (ForwardChu r) where
+  assoc = ForwardChu (unsafeCoerce (\(a, (b, c)) -> ((a, b), c)))
+  assoc' = ForwardChu (unsafeCoerce (\((a, b), c) -> (a, (b, c))))
+  slide = ForwardChu (unsafeCoerce (\(a, (b, c)) -> (b, (a, c))))
+  withTensorOb ObDict ObDict x = x
+
+instance Strength (Chu.ChuOTensor r) (ForwardChu r) where
+  strength (ForwardChu f) = ForwardChu (unsafeCoerce (strengthFun (unsafeCoerce f)))
+    where
+      strengthFun :: (q -> s) -> (p, q) -> (p, s)
+      strengthFun g (a, b) = (a, g b)
+  withStrengthOb ObDict ObDict ObDict x = x
+
+instance Traced (Chu.ChuOTensor r) (ForwardChu r) where
+  trace (ForwardChu f) = ForwardChu (unsafeCoerce (traceFun (unsafeCoerce f)))
+    where
+      traceFun :: ((p, q) -> (p, s)) -> q -> s
+      traceFun g x = let (y, z) = g (y, x) in z
+
+-- | Extract the forward map from an 'OChu' morphism.  This relies on the
+-- fact that 'ChuCarrier' agrees with 'Chu.ChuPosType' on the carriers of
+-- the object tags.
+forwardChu :: Chu.OChu r a b -> ForwardChu r a b
+forwardChu (Chu.OChu (Chu.Chu (Chu.ChuMorphism f _))) = ForwardChu (unsafeCoerce f)
+
+forwardChuObDict :: ObDict (Chu.OChu r) s -> ObDict (ForwardChu r) s
+forwardChuObDict _ = ObDict
 
 type F = Bool
 
@@ -1745,7 +1816,23 @@ main = do
               swapN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
               swapN = Net.Swap
               _composed = plusN . copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-           in True
+           in True,
+        -- First falsifier of traced-ochu: a Chu net can be interpreted via
+        -- 'Net.bind' into a traced target category without needing 'Traced'
+        -- on the source.  ForwardChu uses a closed carrier family so GHC can
+        -- reduce 'ChuOTensor' carriers in polymorphic instance methods.
+        check "Net.bind interprets Chu net into ForwardChu" $
+          let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
+              copyN = Net.Copy
+              composedN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
+              composedN = Net.Plus . Net.Copy
+              copyViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
+              copyViaBind = bind forwardChuObDict forwardChu copyN
+              composedViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
+              composedViaBind = bind forwardChuObDict forwardChu composedN
+              ForwardChu copyF = copyViaBind
+              ForwardChu composedF = composedViaBind
+           in copyF () == ((), ()) && composedF () == ()
       ]
   if and results
     then putStrLn "\nAll tests passed."
