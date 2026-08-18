@@ -8,7 +8,7 @@ module Main where
 
 import Circuit.Algebra qualified as Alg
 import Circuit.Boundary (Boundary (..), IsLinear, Linear (..), NotLinear, Stamped (..), isMark, isPayload)
-import Circuit.Category (Category (..), ObDict (..), id, (.), (.>))
+import Circuit.Category (Category (..), id, (.), (.>))
 import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
 import Circuit.ChannelPoly (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Chu (ChuObject (..))
@@ -26,8 +26,7 @@ import Circuit.Net qualified as Net
 import Circuit.Poly (Dir, Eval (..), Mono, System, fromEvalSystem, lens, monoDir, monoIn, mooreSystem, runSystem, system)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
-import Circuit.Dagger (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
-import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Fire (..), Lolli (..), Par (..), Schedule (..), Shared (..), Tensor (..), WhyNotIntro (..), WhyNotMonoid (..), distL, distR, mix, sharedKnotBy, superpose)
+import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Fire (..), Lolli (..), Schedule (..), Shared (..), Tensor (..), WhyNotIntro (..), distL, distR, mix, sharedKnotBy, superpose)
 import Circuit.Test.Utils (approx, check)
 import Control.Arrow (Kleisli (..), runKleisli)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
@@ -53,7 +52,6 @@ import Prelude qualified as Pre
 newtype ForwardChu (r :: Type) a b = ForwardChu (Chu.ChuPosType a -> Chu.ChuPosType b)
 
 instance Category (ForwardChu r) where
-  type Ob (ForwardChu r) a = ()
   id = ForwardChu Pre.id
   ForwardChu g . ForwardChu f = ForwardChu (g Pre.. f)
 
@@ -84,9 +82,6 @@ instance Traced (Chu.ChuOTensor r) (ForwardChu r) where
 -- underlying 'Chu' category, no bridging coercion is needed.
 forwardChu :: Chu.OChu r a b -> ForwardChu r a b
 forwardChu (Chu.OChu (Chu.Chu (Chu.ChuMorphism f _))) = ForwardChu f
-
-forwardChuObDict :: ObDict (Chu.OChu r) s -> ObDict (ForwardChu r) s
-forwardChuObDict _ = ObDict
 
 type F = Bool
 
@@ -360,18 +355,10 @@ ochuToChuMorphism ::
   Chu.ChuMorphism (,) r (->) (Chu.ChuPosType a) (Chu.ChuNegType a) (Chu.ChuPosType b) (Chu.ChuNegType b)
 ochuToChuMorphism (Chu.OChu (Chu.Chu m)) = m
 
--- | Class-wiring smoke test: 'mergeE' for @?ChuTwo@.
---
--- 'mergeE' is callable here because the source type @?A ⅋ ?A@ puts @a@ inside
--- the injective 'ChuOPar' constructor, letting GHC determine it. 'zeroE' was
--- previously ambiguous even with a type application for @a@ because the
--- 'WhyNotMonoid' instance carried an @Ob (OChu r) a@ context that cycled with
--- the method's result type. After dropping that context (and closing the
--- carrier families), it is directly callable at a specific object.
+-- | Class-wiring smoke test: 'zeroEOChu' for @?ChuTwo@.
 _zeroEChuTwo ::
   Chu.OChu Bool (Chu.ChuONeg Bool (Chu.ChuOUnit Bool)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
-_zeroEChuTwo =
-  zeroE @(Chu.ChuOTensor Bool) @(Chu.ChuOPar Bool) @(Chu.OChu Bool)
+_zeroEChuTwo = Chu.zeroEOChu
 -- ---------------------------------------------------------------------------
 -- SepChu / associator helpers
 -- ---------------------------------------------------------------------------
@@ -955,9 +942,9 @@ checkChuUnitlForward _ _ name =
   let pos = Chu.chuPosAll @r @a
       psI = [((), x) | x <- pos]
       u :: Chu.OChu r (Chu.ChuOTensor r (Chu.ChuOUnit r) a) a
-      u = unitl
+      u = Chu.unitlOChu
       u' :: Chu.OChu r a (Chu.ChuOTensor r (Chu.ChuOUnit r) a)
-      u' = unitl'
+      u' = Chu.unitlOChu'
       idA = id :: Chu.OChu r a a
       idIA = id :: Chu.OChu r (Chu.ChuOTensor r (Chu.ChuOUnit r) a) (Chu.ChuOTensor r (Chu.ChuOUnit r) a)
    in check name $
@@ -976,9 +963,9 @@ checkChuUnitrForward _ _ name =
   let pos = Chu.chuPosAll @r @a
       psI = [(x, ()) | x <- pos]
       u :: Chu.OChu r (Chu.ChuOTensor r a (Chu.ChuOUnit r)) a
-      u = unitr
+      u = Chu.unitrOChu
       u' :: Chu.OChu r a (Chu.ChuOTensor r a (Chu.ChuOUnit r))
-      u' = unitr'
+      u' = Chu.unitrOChu'
       idA = id :: Chu.OChu r a a
       idAI = id :: Chu.OChu r (Chu.ChuOTensor r a (Chu.ChuOUnit r)) (Chu.ChuOTensor r a (Chu.ChuOUnit r))
    in check name $
@@ -1045,7 +1032,7 @@ checkChuPentagonForward _ _ name =
       assocInner = assoc
       lhs = assoc2 . assoc1
       bot1 =
-        par assocInner id ::
+        Chu.parOChu assocInner id ::
           Chu.OChu
             r
             (Chu.ChuOTensor r (Chu.ChuOTensor r (Chu.ChuOTensor r a a) a) a)
@@ -1057,7 +1044,7 @@ checkChuPentagonForward _ _ name =
             (Chu.ChuOTensor r (Chu.ChuOTensor r a (Chu.ChuOTensor r a a)) a)
             (Chu.ChuOTensor r a (Chu.ChuOTensor r (Chu.ChuOTensor r a a) a))
       bot3 =
-        par id assocInner ::
+        Chu.parOChu id assocInner ::
           Chu.OChu
             r
             (Chu.ChuOTensor r a (Chu.ChuOTensor r (Chu.ChuOTensor r a a) a))
@@ -1334,43 +1321,43 @@ main = do
               d = Dagger (const 42) (const 42) :: Dagger (->) Int Int
            in Chu.chuPair chu (conjoint e, companion e) 0 == Chu.chuPair chuNeg (companion e, conjoint e) 0
                 && (let Dagger f g = transpose d in f 0 == 42 && g 0 == 42),
-        -- Object-indexed Chu category (OChu) Tensor / Action instances
+        -- Object-indexed Chu category (OChu) constrained combinators
         check "OChu left unitor round-trips on ChuTwo" $
           let u :: Chu.OChu Bool (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) Chu.ChuTwo) Chu.ChuTwo
-              u = unitl
+              u = Chu.unitlOChu
               u' :: Chu.OChu Bool Chu.ChuTwo (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) Chu.ChuTwo)
-              u' = unitl'
+              u' = Chu.unitlOChu'
            in eqChuMorphismAA (ochuToChuMorphism (u . u')) Chu.idChu,
         check "OChu left unitor inverse round-trips on I ⊗ ChuTwo" $
           let t :: Chu.OChu Bool (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) Chu.ChuTwo) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) Chu.ChuTwo)
               t = id
               u :: Chu.OChu Bool (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) Chu.ChuTwo) Chu.ChuTwo
-              u = unitl
+              u = Chu.unitlOChu
               u' :: Chu.OChu Bool Chu.ChuTwo (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) Chu.ChuTwo)
-              u' = unitl'
+              u' = Chu.unitlOChu'
            in eqChuMorphismIIA (ochuToChuMorphism (u' . u)) (ochuToChuMorphism t),
         check "OChu right unitor round-trips on ChuTwo" $
           let u :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOUnit Bool)) Chu.ChuTwo
-              u = unitr
+              u = Chu.unitrOChu
               u' :: Chu.OChu Bool Chu.ChuTwo (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOUnit Bool))
-              u' = unitr'
+              u' = Chu.unitrOChu'
            in eqChuMorphismAA (ochuToChuMorphism (u . u')) Chu.idChu,
         check "OChu right unitor inverse round-trips on ChuTwo ⊗ I" $
           let t :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOUnit Bool)) (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOUnit Bool))
               t = id
               u :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOUnit Bool)) Chu.ChuTwo
-              u = unitr
+              u = Chu.unitrOChu
               u' :: Chu.OChu Bool Chu.ChuTwo (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOUnit Bool))
-              u' = unitr'
+              u' = Chu.unitrOChu'
            in eqChuMorphismAII (ochuToChuMorphism (u' . u)) (ochuToChuMorphism t),
         check "OChu par preserves identity on ChuTwo ⊗ ChuTwo" $
           let idChuTwo = id :: Chu.OChu Bool Chu.ChuTwo Chu.ChuTwo
               idT = id :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo) (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo)
-              p = par idChuTwo idChuTwo :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo) (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo)
+              p = Chu.parOChu idChuTwo idChuTwo :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo) (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo)
            in eqTensorMorphism (ochuToChuMorphism p) (ochuToChuMorphism idT),
         check "OChu swap is involutive on ChuTwo ⊗ ChuTwo" $
           let s :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo) (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo)
-              s = swap
+              s = Chu.swapOChu
               idT = id :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo) (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo)
            in eqTensorMorphism (ochuToChuMorphism (s . s)) (ochuToChuMorphism idT),
         -- SepChu: double negation, associator, pentagon
@@ -1409,7 +1396,7 @@ main = do
               sl = slide
               derived =
                 assoc
-                  . par swap id
+                  . Chu.parOChu Chu.swapOChu id
                   . assoc' ::
                   Chu.OChu
                     Bool
@@ -1458,7 +1445,7 @@ main = do
                       (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo))
                       Chu.ChuTwo
                   )
-              bot1 = par assoc id
+              bot1 = Chu.parOChu assoc id
               bot2 ::
                 Chu.OChu
                   Bool
@@ -1486,7 +1473,7 @@ main = do
                       Chu.ChuTwo
                       (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo))
                   )
-              bot3 = par id assoc
+              bot3 = Chu.parOChu id assoc
            in eqPentagonMorphism (ochuToChuMorphism (top2 . top1)) (ochuToChuMorphism (bot3 . bot2 . bot1)),
         -- ChuThree: self-dual zoo member (total order is self-dual by reversal)
         check "SepChu ChuThree is separated and extensional" $
@@ -1542,9 +1529,8 @@ main = do
                 && (length compactPos, length compactNegs) == (4, 2),
         check "Lolli OChu curry/uncurry are inverse on right unitor" $
           let u :: Chu.OChu Bool (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOUnit Bool)) Chu.ChuTwo
-              u = unitr
-              recovered =
-                uncurry @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) (curry @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) u)
+              u = Chu.unitrOChu
+              recovered = Chu.uncurryOChu (Chu.curryOChu u)
            in eqChuTwoUnitr (ochuToChuMorphism recovered) (ochuToChuMorphism u),
         check "Lolli OChu eval agrees with evalChu on ChuTwo" $
           let evL ::
@@ -1552,7 +1538,7 @@ main = do
                   Bool
                   (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOLolli Bool Chu.ChuTwo Chu.ChuTwo))
                   Chu.ChuTwo
-              evL = eval @(Chu.ChuOTensor Bool) @(Chu.OChu Bool)
+              evL = Chu.evalOChu
            in eqChuMorphismLolliEval (ochuToChuMorphism evL) (Chu.evalChu chuTwo chuTwo),
         -- Exponentials
         check "Exponential (->) !A is A" $
@@ -1694,46 +1680,46 @@ main = do
               negs = enumFunctions (enumCartesian chuTwoPos chuTwoPos) [True, False]
            in all (\p -> all (\n -> Chu.chuLaw src tgt Chu.promoteChu p n) negs) pos
                 && all (\p -> Chu.chuForward Chu.promoteChu p == p) pos,
-        -- Class wiring: OChu instances for Par, BangCopy/BangWeaken, WhyNotMonoid
-        check "OChu Par parP id id agrees with parChu id id on ChuTwo" $
+        -- Class wiring: OChu constrained combinators for par, copy/discard/merge/zero
+        check "OChu parP id id agrees with parChu id id on ChuTwo" $
           let idC = Chu.idChu :: Chu.ChuMorphism (,) Bool (->) Bool Bool Bool Bool
-              viaClass = parP (Chu.OChu (Chu.Chu idC)) (Chu.OChu (Chu.Chu idC)) :: Chu.OChu Bool (Chu.ChuOPar Bool Chu.ChuTwo Chu.ChuTwo) (Chu.ChuOPar Bool Chu.ChuTwo Chu.ChuTwo)
+              viaClass = Chu.parPOChu (Chu.OChu (Chu.Chu idC)) (Chu.OChu (Chu.Chu idC)) :: Chu.OChu Bool (Chu.ChuOPar Bool Chu.ChuTwo Chu.ChuTwo) (Chu.ChuOPar Bool Chu.ChuTwo Chu.ChuTwo)
            in eqParMorphism (ochuToChuMorphism viaClass) (Chu.parChu idC idC),
-        check "OChu BangCopy copyE agrees with copyBangChu on !ChuTwo" $
+        check "OChu copyE agrees with copyBangChu on !ChuTwo" $
           let bangObj = Chu.bangChuObj chuTwo
               viaClass :: Chu.OChu Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOTensor Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOBang Bool Chu.ChuTwo))
-              viaClass = copyE @(Chu.ChuOTensor Bool) @(Chu.OChu Bool)
+              viaClass = Chu.copyTOChu
               tensNegs = chuTensorNegsExplicit chuTwoPos chuTwoFuns chuTwoPos chuTwoFuns bangObj bangObj
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.copyBangChu
            in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
                 && all (\n -> all (\a -> Chu.chuBackward m1 n a == Chu.chuBackward m2 n a) chuTwoPos) tensNegs,
-        check "OChu BangWeaken discardE agrees with discardBangChu on !ChuTwo" $
+        check "OChu discardE agrees with discardBangChu on !ChuTwo" $
           let viaClass :: Chu.OChu Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOUnit Bool)
-              viaClass = discardE @(Chu.ChuOTensor Bool) @(Chu.OChu Bool)
+              viaClass = Chu.discardEOChu
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.discardBangChu
            in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
                 && all (\k -> all (\a -> Chu.chuBackward m1 k a == Chu.chuBackward m2 k a) chuTwoPos) [True, False],
-        check "OChu CopyT copyT agrees with copyBangChu on !ChuTwo" $
+        check "OChu copyT agrees with copyBangChu on !ChuTwo" $
           let bangObj = Chu.bangChuObj chuTwo
               viaClass :: Chu.OChu Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOTensor Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOBang Bool Chu.ChuTwo))
-              viaClass = copyT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuTwo)
+              viaClass = Chu.copyTOChu
               tensNegs = chuTensorNegsExplicit chuTwoPos chuTwoFuns chuTwoPos chuTwoFuns bangObj bangObj
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.copyBangChu
            in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
                 && all (\n -> all (\a -> Chu.chuBackward m1 n a == Chu.chuBackward m2 n a) chuTwoPos) tensNegs,
-        check "OChu DiscardT discardT agrees with discardBangChu on !ChuTwo" $
+        check "OChu discardT agrees with discardBangChu on !ChuTwo" $
           let viaClass :: Chu.OChu Bool (Chu.ChuOBang Bool Chu.ChuTwo) (Chu.ChuOUnit Bool)
-              viaClass = discardT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuTwo)
+              viaClass = Chu.discardTOChu
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.discardBangChu
            in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
                 && all (\k -> all (\a -> Chu.chuBackward m1 k a == Chu.chuBackward m2 k a) chuTwoPos) [True, False],
-        check "OChu MergeT plusT agrees with mergeBangChu on !ChuAny" $
+        check "OChu plusT agrees with mergeBangChu on !ChuAny" $
           let viaClass :: Chu.OChu Bool (Chu.ChuOTensor Bool (Chu.ChuOBang Bool Chu.ChuAny) (Chu.ChuOBang Bool Chu.ChuAny)) (Chu.ChuOBang Bool Chu.ChuAny)
-              viaClass = plusT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuAny)
+              viaClass = Chu.plusTOChu
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.mergeBangChu
               eqAnyFun f g = all (\x -> f x == g x) chuAnyPos
@@ -1742,9 +1728,9 @@ main = do
                   && all (\x -> eqAnyFun (Chu.ctnBackward n1 x) (Chu.ctnBackward n2 x)) chuAnyPos
            in all (\p -> Chu.chuForward m1 p == Chu.chuForward m2 p) (enumCartesian chuAnyPos chuAnyPos)
                 && all (\k -> eqAnyTensorNeg (Chu.chuBackward m1 k) (Chu.chuBackward m2 k)) chuAnyFuns,
-        check "OChu ZeroT zeroT agrees with zeroBangChu on !ChuAny" $
+        check "OChu zeroT agrees with zeroBangChu on !ChuAny" $
           let viaClass :: Chu.OChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOBang Bool Chu.ChuAny)
-              viaClass = zeroT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuAny)
+              viaClass = Chu.zeroTOChu
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.zeroBangChu
            in Chu.chuForward m1 () == Chu.chuForward m2 ()
@@ -1764,18 +1750,19 @@ main = do
           let _ = undefined :: Chu.OChu Bool (Chu.ChuOPar Bool (Chu.ChuOWhyNot Bool Chu.ChuTwo) (Chu.ChuOWhyNot Bool Chu.ChuTwo)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
               _ = Chu.OChu (Chu.Chu Chu.zeroWhyNotParChu) :: Chu.OChu Bool (Chu.ChuONeg Bool (Chu.ChuOUnit Bool)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
            in True,
-        -- Net wiring over Chu: the tensor-generic Net now accepts ChuOTensor
-        -- as its wiring product. The unit object has the trivial bimonoid on
-        -- the Chu tensor, so a Net using all four bimonoid rows typechecks.
+        -- Net wiring over Chu: the tensor-generic Net accepts ChuOTensor as
+        -- its wiring product.  Without constrained class instances for OChu,
+        -- the bimonoid rows are supplied as explicit 'Net.Lift' morphisms on
+        -- the unit object.
         check "Net ChuOTensor ChuOUnit bimonoid rows typecheck" $
           let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              copyN = Net.Copy
+              copyN = Net.Lift Chu.unitlOChu'
               discardN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              discardN = Net.Discard
+              discardN = Net.Lift id
               plusN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOUnit Bool)
-              plusN = Net.Plus
+              plusN = Net.Lift Chu.unitlOChu
               zeroN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              zeroN = Net.Zero
+              zeroN = Net.Lift id
               swapN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
               swapN = Net.Swap
               _composed = plusN . copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
@@ -1786,13 +1773,13 @@ main = do
         -- reduce 'ChuOTensor' carriers in polymorphic instance methods.
         check "Net.bind interprets Chu net into ForwardChu" $
           let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              copyN = Net.Copy
+              copyN = Net.Lift Chu.unitlOChu'
               composedN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              composedN = Net.Plus . Net.Copy
+              composedN = Net.Lift Chu.unitlOChu . Net.Lift Chu.unitlOChu'
               copyViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              copyViaBind = bind forwardChuObDict forwardChu copyN
+              copyViaBind = bind forwardChu copyN
               composedViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              composedViaBind = bind forwardChuObDict forwardChu composedN
+              composedViaBind = bind forwardChu composedN
               ForwardChu copyF = copyViaBind
               ForwardChu composedF = composedViaBind
            in copyF () == ((), ()) && composedF () == ()

@@ -104,6 +104,32 @@ module Circuit.Chu
     ChuNegNonEmpty,
     OChu (..),
     SepChu,
+
+    -- * OChu constrained combinators (evidence at use sites)
+    parOChu,
+    unitlOChu,
+    unitlOChu',
+    unitrOChu,
+    unitrOChu',
+    swapOChu,
+    parPOChu,
+    unitlPOChu,
+    unitlPOChu',
+    unitrPOChu,
+    unitrPOChu',
+    evalOChu,
+    curryOChu,
+    uncurryOChu,
+    discardEOChu,
+    derelictOChu,
+    introduceOChu,
+    mergeEOChu,
+    zeroEOChu,
+    copyTOChu,
+    discardTOChu,
+    plusTOChu,
+    zeroTOChu,
+
     ChuOUnit (..),
     ChuOTensor (..),
     ChuONeg (..),
@@ -149,7 +175,7 @@ module Circuit.Chu
   )
 where
 
-import Circuit.Category (Category (..), Ob, ObDict (..))
+import Circuit.Category (Category (..))
 import Circuit.Channel (Channel (..))
 import Circuit.Dagger (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Ends (Ends (..), In (..), Out (..), close, companion, conjoint)
@@ -225,7 +251,7 @@ data PointedChuObj t r arr a b = PointedChuObj
 -- Involution is definitional for a symmetric braiding:
 -- @swap . swap = id@.
 negateChu ::
-  (Action t arr, Ob arr a, Ob arr b, Ob arr r, Ob arr (t a b), Ob arr (t b a)) =>
+  (Action t arr) =>
   ChuObj t r arr a b ->
   ChuObj t r arr b a
 negateChu (ChuObj e) = ChuObj (e . swap)
@@ -248,7 +274,7 @@ data ChuMorphism t r arr a b c d = ChuMorphism
 
 -- | Identity Chu morphism.
 idChu ::
-  (Category arr, Ob arr a, Ob arr b) =>
+  (Category arr) =>
   ChuMorphism t r arr a b a b
 idChu = ChuMorphism id id
 {-# INLINE idChu #-}
@@ -258,7 +284,7 @@ idChu = ChuMorphism id id
 -- Forward components compose covariantly; backward components compose
 -- contravariantly.
 composeChu ::
-  (Category arr, Ob arr a, Ob arr b, Ob arr c, Ob arr d, Ob arr e, Ob arr f) =>
+  (Category arr) =>
   ChuMorphism t r arr c d e f ->
   ChuMorphism t r arr a b c d ->
   ChuMorphism t r arr a b e f
@@ -323,14 +349,11 @@ newtype Chu (t :: Type -> Type -> Type) (r :: Type) (arr :: Type -> Type -> Type
     Chu t r arr a b
 
 instance (Category arr) => Category (Chu t r arr) where
-  type Ob (Chu t r arr) a = (Ob arr (ChuPosType a), Ob arr (ChuNegType a))
-
-  id :: forall a. (Ob (Chu t r arr) a) => Chu t r arr a a
+  id :: forall a. Chu t r arr a a
   id = Chu (idChu :: ChuMorphism t r arr (ChuPosType a) (ChuNegType a) (ChuPosType a) (ChuNegType a))
 
   (.) ::
     forall a b c.
-    (Ob (Chu t r arr) a, Ob (Chu t r arr) b, Ob (Chu t r arr) c) =>
     Chu t r arr b c ->
     Chu t r arr a b ->
     Chu t r arr a c
@@ -1082,7 +1105,6 @@ newtype OChu (r :: Type) (a :: Type) (b :: Type) = OChu {unOChu :: Chu (,) r (->
 type SepChu = OChu
 
 instance Category (OChu r) where
-  type Ob (OChu r) a = (ChuSeparated r a, ChuExtensional r a)
   id :: forall a. OChu r a a
   id = OChu id
   (.) :: forall a b c. OChu r b c -> OChu r a b -> OChu r a c
@@ -1108,21 +1130,53 @@ swapChu ::
     (ChuNegType (ChuOTensor r b a))
 swapChu = ChuMorphism (\(x, y) -> (y, x)) (\(ChuTensorNeg h k) -> ChuTensorNeg k h)
 
-instance Tensor (ChuOTensor r) (OChu r) where
-  par :: forall a b c d. OChu r a b -> OChu r c d -> OChu r (ChuOTensor r a c) (ChuOTensor r b d)
-  par (OChu (Chu f)) (OChu (Chu g)) = OChu (Chu (tensorChu f g))
-  unitl :: forall a. (Ob (OChu r) a) => OChu r (ChuOTensor r (ChuOUnit r) a) a
-  unitl = OChu (Chu (leftUnitorChu (chuObject @r @a)))
-  unitl' :: forall a. (Ob (OChu r) a) => OChu r a (ChuOTensor r (ChuOUnit r) a)
-  unitl' = OChu (Chu (leftUnitorChuInv (chuObject @r @a)))
-  unitr :: forall a. (Ob (OChu r) a) => OChu r (ChuOTensor r a (ChuOUnit r)) a
-  unitr = OChu (Chu (rightUnitorChu (chuObject @r @a)))
-  unitr' :: forall a. (Ob (OChu r) a) => OChu r a (ChuOTensor r a (ChuOUnit r))
-  unitr' = OChu (Chu (rightUnitorChuInv (chuObject @r @a)))
+-- | Parallel composition for 'OChu'.
+parOChu ::
+  forall r (a :: Type) (b :: Type) (c :: Type) (d :: Type).
+  OChu r a b ->
+  OChu r c d ->
+  OChu r (ChuOTensor r a c) (ChuOTensor r b d)
+parOChu (OChu (Chu f)) (OChu (Chu g)) = OChu (Chu (tensorChu f g))
+{-# INLINE parOChu #-}
 
-instance Action (ChuOTensor r) (OChu r) where
-  swap :: forall (a :: Type) (b :: Type). OChu r (ChuOTensor r a b) (ChuOTensor r b a)
-  swap = OChu (Chu (swapChu @r @a @b))
+-- | Left unitor @I ⊗ A → A@ for 'OChu'.
+unitlOChu ::
+  forall r (a :: Type).
+  (ChuObject r a) =>
+  OChu r (ChuOTensor r (ChuOUnit r) a) a
+unitlOChu = OChu (Chu (leftUnitorChu (chuObject @r @a)))
+{-# INLINE unitlOChu #-}
+
+-- | Inverse left unitor @A → I ⊗ A@ for 'OChu'.
+unitlOChu' ::
+  forall r (a :: Type).
+  (ChuObject r a) =>
+  OChu r a (ChuOTensor r (ChuOUnit r) a)
+unitlOChu' = OChu (Chu (leftUnitorChuInv (chuObject @r @a)))
+{-# INLINE unitlOChu' #-}
+
+-- | Right unitor @A ⊗ I → A@ for 'OChu'.
+unitrOChu ::
+  forall r (a :: Type).
+  (ChuObject r a) =>
+  OChu r (ChuOTensor r a (ChuOUnit r)) a
+unitrOChu = OChu (Chu (rightUnitorChu (chuObject @r @a)))
+{-# INLINE unitrOChu #-}
+
+-- | Inverse right unitor @A → A ⊗ I@ for 'OChu'.
+unitrOChu' ::
+  forall r (a :: Type).
+  (ChuObject r a) =>
+  OChu r a (ChuOTensor r a (ChuOUnit r))
+unitrOChu' = OChu (Chu (rightUnitorChuInv (chuObject @r @a)))
+{-# INLINE unitrOChu' #-}
+
+-- | Symmetric braiding @A ⊗ B → B ⊗ A@ for 'OChu'.
+swapOChu ::
+  forall r (a :: Type) (b :: Type).
+  OChu r (ChuOTensor r a b) (ChuOTensor r b a)
+swapOChu = OChu (Chu (swapChu @r @a @b))
+{-# INLINE swapOChu #-}
 
 -- | Monoidal structure on the object-level Chu tensor.
 --
@@ -1289,14 +1343,45 @@ type instance Bot (ChuOPar r) = ChuONeg r (ChuOUnit r)
 --
 -- The par product of objects is 'ChuOPar'; the structural morphisms are the
 -- Set-level par maps already defined for 'Chu' morphisms.
-instance Par (ChuOPar r) (OChu r) where
-  parP (OChu (Chu f)) (OChu (Chu g)) = OChu (Chu (parChu f g))
-  unitlP = OChu (Chu leftUnitorParChu)
-  unitlP' :: forall a. (Ob (OChu r) a) => OChu r a (ChuOPar r (Bot (ChuOPar r)) a)
-  unitlP' = OChu (Chu (leftUnitorParChuInv (chuObject @r @a)))
-  unitrP = OChu (Chu rightUnitorParChu)
-  unitrP' :: forall a. (Ob (OChu r) a) => OChu r a (ChuOPar r a (Bot (ChuOPar r)))
-  unitrP' = OChu (Chu (rightUnitorParChuInv (chuObject @r @a)))
+
+-- | Parallel composition for the par product on 'OChu'.
+parPOChu ::
+  forall r (a :: Type) (b :: Type) (c :: Type) (d :: Type).
+  OChu r a b ->
+  OChu r c d ->
+  OChu r (ChuOPar r a c) (ChuOPar r b d)
+parPOChu (OChu (Chu f)) (OChu (Chu g)) = OChu (Chu (parChu f g))
+{-# INLINE parPOChu #-}
+
+-- | Left unitor @⊥ ⅋ A → A@ for 'OChu'.
+unitlPOChu ::
+  forall r (a :: Type).
+  OChu r (ChuOPar r (Bot (ChuOPar r)) a) a
+unitlPOChu = OChu (Chu leftUnitorParChu)
+{-# INLINE unitlPOChu #-}
+
+-- | Inverse left unitor @A → ⊥ ⅋ A@ for 'OChu'.
+unitlPOChu' ::
+  forall r (a :: Type).
+  (ChuObject r a) =>
+  OChu r a (ChuOPar r (Bot (ChuOPar r)) a)
+unitlPOChu' = OChu (Chu (leftUnitorParChuInv (chuObject @r @a)))
+{-# INLINE unitlPOChu' #-}
+
+-- | Right unitor @A ⅋ ⊥ → A@ for 'OChu'.
+unitrPOChu ::
+  forall r (a :: Type).
+  OChu r (ChuOPar r a (Bot (ChuOPar r))) a
+unitrPOChu = OChu (Chu rightUnitorParChu)
+{-# INLINE unitrPOChu #-}
+
+-- | Inverse right unitor @A → A ⅋ ⊥@ for 'OChu'.
+unitrPOChu' ::
+  forall r (a :: Type).
+  (ChuObject r a) =>
+  OChu r a (ChuOPar r a (Bot (ChuOPar r)))
+unitrPOChu' = OChu (Chu (rightUnitorParChuInv (chuObject @r @a)))
+{-# INLINE unitrPOChu' #-}
 
 -- | Curry @(A ⊗ B → C) → (A → B ⊸ C)@ over @Set@.
 curryChu ::
@@ -1346,17 +1431,42 @@ uncurryChu (ChuMorphism gPos gNeg) =
     (\z -> ChuTensorNeg (\x -> cppBackward (gPos x) z) (\y -> gNeg (y, z)))
 {-# INLINE uncurryChu #-}
 
--- | Closed structure on 'OChu': implication is 'ChuOLolli'.
-instance Lolli (ChuOTensor r) (OChu r) where
-  type LolliT (ChuOTensor r) (OChu r) a b = ChuOLolli r a b
-  lolli _ = id
-  eval ::
-    forall a b.
-    (Ob (OChu r) a, Ob (OChu r) b) =>
-    OChu r (ChuOTensor r a (ChuOLolli r a b)) b
-  eval = OChu (Chu (evalChu (chuObject @r @a) (chuObject @r @b)))
-  curry (OChu (Chu f)) = OChu (Chu (curryChu f))
-  uncurry (OChu (Chu g)) = OChu (Chu (uncurryChu g))
+-- | Evaluation counit @A ⊗ (A ⊸ B) → B@ for 'OChu'.
+evalOChu ::
+  forall r (a :: Type) (b :: Type).
+  (ChuObject r a, ChuObject r b) =>
+  OChu r (ChuOTensor r a (ChuOLolli r a b)) b
+evalOChu = OChu (Chu (evalChu (chuObject @r @a) (chuObject @r @b)))
+{-# INLINE evalOChu #-}
+
+-- | Curry @(A ⊗ B → C) → (A → B ⊸ C)@ for 'OChu'.
+curryOChu ::
+  forall r (a :: Type) (b :: Type) (c :: Type).
+  OChu r (ChuOTensor r a b) c ->
+  OChu r a (ChuOLolli r b c)
+curryOChu (OChu (Chu f)) = OChu (Chu (curryChu f))
+{-# INLINE curryOChu #-}
+
+-- | Uncurry @(A → B ⊸ C) → (A ⊗ B → C)@ for 'OChu'.
+uncurryOChu ::
+  forall r (a :: Type) (b :: Type) (c :: Type).
+  OChu r a (ChuOLolli r b c) ->
+  OChu r (ChuOTensor r a b) c
+uncurryOChu (OChu (Chu g)) =
+  OChu
+    ( Chu
+        ( uncurryChu g ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              (ChuPosType a, ChuPosType b)
+              (ChuTensorNeg (ChuPosType a) (ChuNegType a) (ChuPosType b) (ChuNegType b))
+              (ChuPosType c)
+              (ChuNegType c)
+        )
+    )
+{-# INLINE uncurryOChu #-}
 
 -- ===========================================================================
 -- Exponentials: !A = (A⁺, A⁺ → r, eval), ?A = (!A⊥)⊥
@@ -1629,76 +1739,163 @@ instance (ChuObject r a) => ChuSeparated r (ChuOWhyNot r a)
 
 instance (ChuExtensional r a) => ChuExtensional r (ChuOWhyNot r a)
 
-instance Exponential (ChuOTensor r) (OChu r) where
-  type Bang (ChuOTensor r) (OChu r) a = ChuOBang r a
-  type WhyNot (ChuOTensor r) (OChu r) a = ChuOWhyNot r a
+-- | Discard @!A → I@ for 'OChu'.
+discardEOChu ::
+  forall r (a :: Type).
+  OChu r (ChuOBang r a) (ChuOUnit r)
+discardEOChu =
+  OChu
+    ( Chu
+        ( discardBangChu ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              (ChuPosType a)
+              (ChuPosType a -> r)
+              ()
+              r
+        )
+    )
+{-# INLINE discardEOChu #-}
 
-instance BangCopy (ChuOTensor r) (OChu r) where
-  copyE = OChu (Chu copyBangChu)
+-- | Dereliction @!A → A@ for 'OChu'.
+derelictOChu ::
+  forall r a.
+  (ChuObject r a) =>
+  OChu r (ChuOBang r a) a
+derelictOChu = OChu (Chu (derelictChu (chuObject @r @a)))
+{-# INLINE derelictOChu #-}
 
-instance BangWeaken (ChuOTensor r) (OChu r) where
-  discardE = OChu (Chu discardBangChu)
-  derelict :: forall a. (Ob (OChu r) a) => OChu r (ChuOBang r a) a
-  derelict = OChu (Chu (derelictChu (chuObject @r @a)))
+-- | Introduction @A → ?A@ for 'OChu'.
+introduceOChu ::
+  forall r a.
+  (ChuObject r a) =>
+  OChu r a (ChuOWhyNot r a)
+introduceOChu = OChu (Chu (introduceChu (chuObject @r @a)))
+{-# INLINE introduceOChu #-}
 
-instance WhyNotIntro (ChuOTensor r) (OChu r) where
-  introduce :: forall a. (Ob (OChu r) a) => OChu r a (ChuOWhyNot r a)
-  introduce = OChu (Chu (introduceChu (chuObject @r @a)))
+-- | Merge @?A ⅋ ?A → ?A@ for 'OChu'.
+mergeEOChu ::
+  forall r (a :: Type).
+  OChu r (ChuOPar r (ChuOWhyNot r a) (ChuOWhyNot r a)) (ChuOWhyNot r a)
+mergeEOChu =
+  OChu
+    ( Chu
+        ( mergeWhyNotParChu ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              (ChuParPos (ChuNegType a -> r) (ChuNegType a) (ChuNegType a -> r) (ChuNegType a))
+              (ChuNegType a, ChuNegType a)
+              (ChuNegType a -> r)
+              (ChuNegType a)
+        )
+    )
+{-# INLINE mergeEOChu #-}
 
--- | The @?@-monoid as a 'WhyNotMonoid' on 'OChu'.
---
--- The @!@-comonoid is given by 'BangCopy' / 'BangWeaken'; the cartesian
--- 'Circuit.Dagger.Copy' / 'Discard' classes hard-code the Haskell pair and
--- unit and cannot be instantiated for 'OChu'.  The tensor-generic
--- 'Circuit.Dagger.CopyT' / 'DiscardT' classes below are the fix: they use
--- the object-level tensor ('ChuOTensor') and unit ('ChuOUnit').
-instance WhyNotMonoid (ChuOTensor r) (ChuOPar r) (OChu r) where
-  mergeE = OChu (Chu mergeWhyNotParChu)
-  zeroE = OChu (Chu zeroWhyNotParChu)
+-- | Unit @⊥ → ?A@ for 'OChu'.
+zeroEOChu ::
+  forall r (a :: Type).
+  OChu r (ChuONeg r (ChuOUnit r)) (ChuOWhyNot r a)
+zeroEOChu =
+  OChu
+    ( Chu
+        ( zeroWhyNotParChu ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              r
+              ()
+              (ChuNegType a -> r)
+              (ChuNegType a)
+        )
+    )
+{-# INLINE zeroEOChu #-}
 
--- | @!A@ carries a comonoid on the Chu tensor.
-instance (Ob (OChu r) a) => CopyT (ChuOTensor r) (OChu r) (ChuOBang r a) where
-  copyT = OChu (Chu copyBangChu)
+-- | Copy @!A → !A ⊗ !A@ for 'OChu'.
+copyTOChu ::
+  forall r (a :: Type).
+  OChu r (ChuOBang r a) (ChuOTensor r (ChuOBang r a) (ChuOBang r a))
+copyTOChu =
+  OChu
+    ( Chu
+        ( copyBangChu ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              (ChuPosType a)
+              (ChuPosType a -> r)
+              (ChuPosType a, ChuPosType a)
+              (ChuTensorNeg (ChuPosType a) (ChuPosType a -> r) (ChuPosType a) (ChuPosType a -> r))
+        )
+    )
+{-# INLINE copyTOChu #-}
 
--- | @!A@ discards to the Chu tensor unit.
-instance (Ob (OChu r) a) => DiscardT (ChuOTensor r) (OChu r) (ChuOBang r a) where
-  discardT = OChu (Chu discardBangChu)
+-- | Discard @!A → I@ for 'OChu'.
+discardTOChu ::
+  forall r (a :: Type).
+  OChu r (ChuOBang r a) (ChuOUnit r)
+discardTOChu =
+  OChu
+    ( Chu
+        ( discardBangChu ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              (ChuPosType a)
+              (ChuPosType a -> r)
+              ()
+              r
+        )
+    )
+{-# INLINE discardTOChu #-}
 
--- | @!A@ merges two copies using a 'Monoid' on the positive carrier.
---
--- This is the missing half of the bimonoid on the modality: 'CopyT' and
--- 'DiscardT' are free, while 'MergeT' and 'ZeroT' need a chosen monoid
--- structure on @A⁺@.  For 'ChuTwo' with @A⁺ = Bool@ under disjunction,
--- this gives a non-trivial Chu net that can be run/melt/sifted.
-instance
-  (Ob (OChu r) a, Monoid (ChuPosType a)) =>
-  MergeT (ChuOTensor r) (OChu r) (ChuOBang r a)
-  where
-  plusT = OChu (Chu mergeBangChu)
+-- | Merge @!A ⊗ !A → !A@ for 'OChu'.
+plusTOChu ::
+  forall r (a :: Type).
+  (Monoid (ChuPosType a)) =>
+  OChu r (ChuOTensor r (ChuOBang r a) (ChuOBang r a)) (ChuOBang r a)
+plusTOChu =
+  OChu
+    ( Chu
+        ( mergeBangChu ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              (ChuPosType a, ChuPosType a)
+              (ChuTensorNeg (ChuPosType a) (ChuPosType a -> r) (ChuPosType a) (ChuPosType a -> r))
+              (ChuPosType a)
+              (ChuPosType a -> r)
+        )
+    )
+{-# INLINE plusTOChu #-}
 
--- | @!A@ receives the monoid unit as a point of the positive carrier.
-instance
-  (Ob (OChu r) a, Monoid (ChuPosType a)) =>
-  ZeroT (ChuOTensor r) (OChu r) (ChuOBang r a)
-  where
-  zeroT = OChu (Chu zeroBangChu)
-
--- | The tensor unit carries the trivial bimonoid on the Chu tensor.
---
--- For the unit object, the tensor product with itself is again the unit up
--- to the left unitor, so copy/discard and merge/zero are all mediated by
--- the unitors and identities.
-instance CopyT (ChuOTensor r) (OChu r) (ChuOUnit r) where
-  copyT = unitl'
-
-instance DiscardT (ChuOTensor r) (OChu r) (ChuOUnit r) where
-  discardT = id
-
-instance MergeT (ChuOTensor r) (OChu r) (ChuOUnit r) where
-  plusT = unitl
-
-instance ZeroT (ChuOTensor r) (OChu r) (ChuOUnit r) where
-  zeroT = id
+-- | Zero @I → !A@ for 'OChu'.
+zeroTOChu ::
+  forall r (a :: Type).
+  (Monoid (ChuPosType a)) =>
+  OChu r (ChuOUnit r) (ChuOBang r a)
+zeroTOChu =
+  OChu
+    ( Chu
+        ( zeroBangChu ::
+            ChuMorphism
+              (,)
+              r
+              (->)
+              ()
+              r
+              (ChuPosType a)
+              (ChuPosType a -> r)
+        )
+    )
+{-# INLINE zeroTOChu #-}
 
 -- ---------------------------------------------------------------------------
 -- Embedding from 'Circuit.Ends'
