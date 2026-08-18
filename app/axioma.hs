@@ -366,9 +366,10 @@ ochuToChuMorphism (Chu.OChu (Chu.Chu m)) = m
 --
 -- 'mergeE' is callable here because the source type @?A ⅋ ?A@ puts @a@ inside
 -- the injective 'ChuOPar' constructor, letting GHC determine it. 'zeroE' was
--- previously blocked by a non-injective 'WhyNot' family, but the injectivity
--- annotation 'result | result -> a' added during class wiring now lets it be
--- called directly at a specific object.
+-- previously ambiguous even with a type application for @a@ because the
+-- 'WhyNotMonoid' instance carried an @Ob (OChu r) a@ context that cycled with
+-- the method's result type. After dropping that context (and closing the
+-- carrier families), it is directly callable at a specific object.
 _zeroEChuTwo ::
   Chu.OChu Bool (Chu.ChuONeg Bool (Chu.ChuOUnit Bool)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
 _zeroEChuTwo =
