@@ -43,28 +43,32 @@ import Unsafe.Coerce (unsafeCoerce)
 import Prelude hiding (curry, id, uncurry, (.))
 import Prelude qualified as Pre
 
--- | Closed carrier family for Chu object tags.  Unlike 'Chu.ChuPosType',
--- this family pattern-matches on the tag constructor, so GHC can reduce it
--- in polymorphic 'Action'/'Channel'/'Traced' instance methods.
+-- | Closed carrier family for the *multiplicative-exponential, forward-only*
+-- fragment of Chu object tags.  It pattern-matches on the tag constructor so
+-- GHC can reduce it in polymorphic 'Action'/'Channel'/'Traced' instance
+-- methods.
+--
+-- Negative-facing tags ('ChuONeg', 'ChuOWhyNot', 'ChuOPar', 'ChuOLolli') are
+-- intentionally omitted.  Their positive carriers depend on 'ChuNegType' or
+-- 'ChuParPos', which this family does not capture; including guessed equations
+-- would make 'forwardChu' silently reinterpret carriers.
 type family ChuCarrier a :: Type where
   ChuCarrier (Chu.ChuOUnit r) = ()
   ChuCarrier (Chu.ChuOTensor r a b) = (ChuCarrier a, ChuCarrier b)
   ChuCarrier (Chu.ChuOBang r a) = ChuCarrier a
-  ChuCarrier (Chu.ChuOWhyNot r a) = ChuCarrier a -> r
-  ChuCarrier (Chu.ChuONeg r a) = ChuCarrier a
-  ChuCarrier (Chu.ChuOLolli r a b) = ChuCarrier a -> ChuCarrier b
   ChuCarrier (Chu.ChuOWith r a b) = (ChuCarrier a, ChuCarrier b)
   ChuCarrier (Chu.ChuOPlus r a b) = Either (ChuCarrier a) (ChuCarrier b)
-  ChuCarrier (Chu.ChuOPar r a b) = Either (ChuCarrier a) (ChuCarrier b)
   ChuCarrier Chu.ChuTwo = Bool
   ChuCarrier Chu.ChuThree = Maybe Bool
   ChuCarrier Chu.ChuDouble01 = Bool
   ChuCarrier Chu.ChuDelivery = Bool
 
 -- | Forward-only Chu interpretation: objects are Chu object tags, morphisms
--- are functions between their 'ChuCarrier' interpretations.  Used to test
--- whether a Chu net can be interpreted into a traced target via 'Net.bind'
--- without requiring 'Traced' on the source category.
+-- are functions between their 'ChuCarrier' interpretations.  This is Chu's
+-- *positive projection*, not Chu itself: the backward leg is discarded.
+--
+-- Used to test whether a Chu net can be interpreted into a traced target via
+-- 'Net.bind' without requiring 'Traced' on the source category.
 newtype ForwardChu (r :: Type) a b = ForwardChu (ChuCarrier a -> ChuCarrier b)
 
 instance Category (ForwardChu r) where
@@ -73,45 +77,56 @@ instance Category (ForwardChu r) where
   ForwardChu g . ForwardChu f = ForwardChu (g Pre.. f)
 
 instance Tensor (Chu.ChuOTensor r) (ForwardChu r) where
-  par (ForwardChu f) (ForwardChu g) = ForwardChu (unsafeCoerce (parFun (unsafeCoerce f) (unsafeCoerce g)))
-    where
-      parFun :: (a -> b) -> (c -> d) -> (a, c) -> (b, d)
-      parFun p q (x, y) = (p x, q y)
-  unitl = ForwardChu (unsafeCoerce (\((), a) -> a))
-  unitl' = ForwardChu (unsafeCoerce (\a -> ((), a)))
-  unitr = ForwardChu (unsafeCoerce (\(a, ()) -> a))
-  unitr' = ForwardChu (unsafeCoerce (\a -> (a, ())))
+  par (ForwardChu f) (ForwardChu g) = ForwardChu (\(x, y) -> (f x, g y))
+  unitl = ForwardChu (\((), a) -> a)
+  unitl' = ForwardChu (\a -> ((), a))
+  unitr = ForwardChu (\(a, ()) -> a)
+  unitr' = ForwardChu (\a -> (a, ()))
 
 instance Action (Chu.ChuOTensor r) (ForwardChu r) where
-  swap = ForwardChu (unsafeCoerce (\(a, b) -> (b, a)))
+  swap = ForwardChu (\(a, b) -> (b, a))
 
 instance Circuit.Channel.Channel (Chu.ChuOTensor r) (ForwardChu r) where
+  -- 'assoc' and 'assoc'' pattern-match on nested tensor carriers, which GHC
+  -- does not reduce in pattern context; the coercions expose the expected
+  -- pair-of-pairs shape.
   assoc = ForwardChu (unsafeCoerce (\(a, (b, c)) -> ((a, b), c)))
   assoc' = ForwardChu (unsafeCoerce (\((a, b), c) -> (a, (b, c))))
-  slide = ForwardChu (unsafeCoerce (\(a, (b, c)) -> (b, (a, c))))
+  slide = ForwardChu (\(a, (b, c)) -> (b, (a, c)))
   withTensorOb ObDict ObDict x = x
 
 instance Strength (Chu.ChuOTensor r) (ForwardChu r) where
-  strength (ForwardChu f) = ForwardChu (unsafeCoerce (strengthFun (unsafeCoerce f)))
-    where
-      strengthFun :: (q -> s) -> (p, q) -> (p, s)
-      strengthFun g (a, b) = (a, g b)
+  strength (ForwardChu f) = ForwardChu (\(a, b) -> (a, f b))
   withStrengthOb ObDict ObDict ObDict x = x
 
 instance Traced (Chu.ChuOTensor r) (ForwardChu r) where
-  trace (ForwardChu f) = ForwardChu (unsafeCoerce (traceFun (unsafeCoerce f)))
-    where
-      traceFun :: ((p, q) -> (p, s)) -> q -> s
-      traceFun g x = let (y, z) = g (y, x) in z
+  trace (ForwardChu f) = ForwardChu (\x -> let (y, z) = f (y, x) in z)
 
--- | Extract the forward map from an 'OChu' morphism.  This relies on the
--- fact that 'ChuCarrier' agrees with 'Chu.ChuPosType' on the carriers of
--- the object tags.
+-- | Extract the forward map from an 'OChu' morphism.
+--
+-- The 'unsafeCoerce' is load-bearing: it bridges 'Chu.ChuPosType' and
+-- 'ChuCarrier', two families GHC cannot relate.  It is safe only on tags
+-- where 'ChuCarrier' agrees with 'Chu.ChuPosType'; see 'chuCarrierAgreement'.
 forwardChu :: Chu.OChu r a b -> ForwardChu r a b
 forwardChu (Chu.OChu (Chu.Chu (Chu.ChuMorphism f _))) = ForwardChu (unsafeCoerce f)
 
 forwardChuObDict :: ObDict (Chu.OChu r) s -> ObDict (ForwardChu r) s
 forwardChuObDict _ = ObDict
+
+-- | Type-level agreement check: 'Chu.chuPosAll' must inhabit '[ChuCarrier a]'
+-- for every tag 'a' that 'forwardChu' is allowed to run on.  If the two
+-- carrier families drift apart in circuits-chu, this will fail to compile
+-- instead of producing a wrong runtime answer.
+chuCarrierAgreement :: ()
+chuCarrierAgreement =
+  let _ = Chu.chuPosAll @Bool @Chu.ChuTwo :: [ChuCarrier Chu.ChuTwo]
+      _ = Chu.chuPosAll @Bool @Chu.ChuThree :: [ChuCarrier Chu.ChuThree]
+      _ = Chu.chuPosAll @Double @Chu.ChuDouble01 :: [ChuCarrier Chu.ChuDouble01]
+      _ = Chu.chuPosAll @Bool @Chu.ChuDelivery :: [ChuCarrier Chu.ChuDelivery]
+      _ = Chu.chuPosAll @Bool @(Chu.ChuOUnit Bool) :: [ChuCarrier (Chu.ChuOUnit Bool)]
+      _ = Chu.chuPosAll @Bool @(Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo) :: [ChuCarrier (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo)]
+      _ = Chu.chuPosAll @Bool @(Chu.ChuOBang Bool Chu.ChuTwo) :: [ChuCarrier (Chu.ChuOBang Bool Chu.ChuTwo)]
+   in ()
 
 type F = Bool
 
