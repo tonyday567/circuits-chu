@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -10,7 +11,7 @@ import Circuit.Boundary (Boundary (..), IsLinear, Linear (..), NotLinear, Stampe
 import Circuit.Category (Category (..), ObDict (..), id, (.), (.>))
 import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
 import Circuit.ChannelPoly (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
-import Circuit.Chu (ChuObjShape (..), ChuObject (..))
+import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
 import Circuit.Dagger (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merge (..), MergeZero, Zero (..), transpose)
 import Circuit.Ends (Bias (..), Ends (..), HasDual (..), box, close, composeEnds0, copycat, ends, ends0, endsK, pairEnds, prefixIn, raceEnds, splay, splay0, suffixOut)
@@ -39,37 +40,17 @@ import Data.These (These (..), these)
 import Data.Tuple qualified as Tuple
 import Data.Void (Void, absurd)
 import GHC.TypeNats (KnownNat, natVal)
-import Unsafe.Coerce (unsafeCoerce)
 import Prelude hiding (curry, id, uncurry, (.))
 import Prelude qualified as Pre
 
--- | Closed carrier family for the *multiplicative-exponential, forward-only*
--- fragment of Chu object tags.  It pattern-matches on the tag constructor so
--- GHC can reduce it in polymorphic 'Action'/'Channel'/'Traced' instance
--- methods.
---
--- Negative-facing tags ('ChuONeg', 'ChuOWhyNot', 'ChuOPar', 'ChuOLolli') are
--- intentionally omitted.  Their positive carriers depend on 'ChuNegType' or
--- 'ChuParPos', which this family does not capture; including guessed equations
--- would make 'forwardChu' silently reinterpret carriers.
-type family ChuCarrier a :: Type where
-  ChuCarrier (Chu.ChuOUnit r) = ()
-  ChuCarrier (Chu.ChuOTensor r a b) = (ChuCarrier a, ChuCarrier b)
-  ChuCarrier (Chu.ChuOBang r a) = ChuCarrier a
-  ChuCarrier (Chu.ChuOWith r a b) = (ChuCarrier a, ChuCarrier b)
-  ChuCarrier (Chu.ChuOPlus r a b) = Either (ChuCarrier a) (ChuCarrier b)
-  ChuCarrier Chu.ChuTwo = Bool
-  ChuCarrier Chu.ChuThree = Maybe Bool
-  ChuCarrier Chu.ChuDouble01 = Bool
-  ChuCarrier Chu.ChuDelivery = Bool
-
 -- | Forward-only Chu interpretation: objects are Chu object tags, morphisms
--- are functions between their 'ChuCarrier' interpretations.  This is Chu's
--- *positive projection*, not Chu itself: the backward leg is discarded.
+-- are functions between their positive carriers via the closed 'Chu.ChuPosType'
+-- family.  This is Chu's *positive projection*, not Chu itself: the backward
+-- leg is discarded.
 --
 -- Used to test whether a Chu net can be interpreted into a traced target via
 -- 'Net.bind' without requiring 'Traced' on the source category.
-newtype ForwardChu (r :: Type) a b = ForwardChu (ChuCarrier a -> ChuCarrier b)
+newtype ForwardChu (r :: Type) a b = ForwardChu (Chu.ChuPosType a -> Chu.ChuPosType b)
 
 instance Category (ForwardChu r) where
   type Ob (ForwardChu r) a = ()
@@ -87,11 +68,8 @@ instance Action (Chu.ChuOTensor r) (ForwardChu r) where
   swap = ForwardChu (\(a, b) -> (b, a))
 
 instance Circuit.Channel.Channel (Chu.ChuOTensor r) (ForwardChu r) where
-  -- 'assoc' and 'assoc'' pattern-match on nested tensor carriers, which GHC
-  -- does not reduce in pattern context; the coercions expose the expected
-  -- pair-of-pairs shape.
-  assoc = ForwardChu (unsafeCoerce (\(a, (b, c)) -> ((a, b), c)))
-  assoc' = ForwardChu (unsafeCoerce (\((a, b), c) -> (a, (b, c))))
+  assoc = ForwardChu (\((x, y), z) -> (x, (y, z)))
+  assoc' = ForwardChu (\(x, (y, z)) -> ((x, y), z))
   slide = ForwardChu (\(a, (b, c)) -> (b, (a, c)))
   withTensorOb ObDict ObDict x = x
 
@@ -104,29 +82,13 @@ instance Traced (Chu.ChuOTensor r) (ForwardChu r) where
 
 -- | Extract the forward map from an 'OChu' morphism.
 --
--- The 'unsafeCoerce' is load-bearing: it bridges 'Chu.ChuPosType' and
--- 'ChuCarrier', two families GHC cannot relate.  It is safe only on tags
--- where 'ChuCarrier' agrees with 'Chu.ChuPosType'; see 'chuCarrierAgreement'.
+-- Because 'ForwardChu' uses the same closed 'Chu.ChuPosType' family as the
+-- underlying 'Chu' category, no bridging coercion is needed.
 forwardChu :: Chu.OChu r a b -> ForwardChu r a b
-forwardChu (Chu.OChu (Chu.Chu (Chu.ChuMorphism f _))) = ForwardChu (unsafeCoerce f)
+forwardChu (Chu.OChu (Chu.Chu (Chu.ChuMorphism f _))) = ForwardChu f
 
 forwardChuObDict :: ObDict (Chu.OChu r) s -> ObDict (ForwardChu r) s
 forwardChuObDict _ = ObDict
-
--- | Type-level agreement check: 'Chu.chuPosAll' must inhabit '[ChuCarrier a]'
--- for every tag 'a' that 'forwardChu' is allowed to run on.  If the two
--- carrier families drift apart in circuits-chu, this will fail to compile
--- instead of producing a wrong runtime answer.
-chuCarrierAgreement :: ()
-chuCarrierAgreement =
-  let _ = Chu.chuPosAll @Bool @Chu.ChuTwo :: [ChuCarrier Chu.ChuTwo]
-      _ = Chu.chuPosAll @Bool @Chu.ChuThree :: [ChuCarrier Chu.ChuThree]
-      _ = Chu.chuPosAll @Double @Chu.ChuDouble01 :: [ChuCarrier Chu.ChuDouble01]
-      _ = Chu.chuPosAll @Bool @Chu.ChuDelivery :: [ChuCarrier Chu.ChuDelivery]
-      _ = Chu.chuPosAll @Bool @(Chu.ChuOUnit Bool) :: [ChuCarrier (Chu.ChuOUnit Bool)]
-      _ = Chu.chuPosAll @Bool @(Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo) :: [ChuCarrier (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo)]
-      _ = Chu.chuPosAll @Bool @(Chu.ChuOBang Bool Chu.ChuTwo) :: [ChuCarrier (Chu.ChuOBang Bool Chu.ChuTwo)]
-   in ()
 
 type F = Bool
 
@@ -256,23 +218,6 @@ chuObjPostInt = Chu.ChuObj (Pre.uncurry chuDelivers)
 -- | A tiny self-dual Chu object over @Bool@ with equality pairing.
 chuTwo :: Chu.ChuObj (,) Bool (->) Bool Bool
 chuTwo = Chu.ChuObj (Pre.uncurry (==))
-
--- | A tiny self-dual Chu object over @Any@ (disjunction monoid) with equality
--- pairing. Used to test the bimonoid on @!A@ from a 'Monoid' on @A⁺@.
-data ChuAny = ChuAny
-
-instance ChuObjShape ChuAny where
-  type ChuPosType ChuAny = Any
-  type ChuNegType ChuAny = Any
-
-instance ChuObject Bool ChuAny where
-  chuObject = Chu.ChuObj (\(Any x, Any y) -> x == y)
-  chuPosAll = [Any False, Any True]
-  chuNegAll = [Any False, Any True]
-
-instance Chu.ChuSeparated Bool ChuAny
-
-instance Chu.ChuExtensional Bool ChuAny
 
 -- | Negation as a Chu endomorphism of the self-dual @Bool@ object.
 chuNot :: Chu.ChuMorphism (,) Bool (->) Bool Bool Bool Bool
@@ -420,10 +365,14 @@ ochuToChuMorphism (Chu.OChu (Chu.Chu m)) = m
 -- | Class-wiring smoke test: 'mergeE' for @?ChuTwo@.
 --
 -- 'mergeE' is callable here because the source type @?A ⅋ ?A@ puts @a@ inside
--- the injective 'ChuOPar' constructor, letting GHC determine it. 'zeroE' is
--- not directly callable at a specific @a@ because 'WhyNot' is a non-injective
--- type family and @a@ only appears inside the result; its value-level oracle
--- 'zeroWhyNotParChu' is exercised below instead.
+-- the injective 'ChuOPar' constructor, letting GHC determine it. 'zeroE' was
+-- previously blocked by a non-injective 'WhyNot' family, but the injectivity
+-- annotation 'result | result -> a' added during class wiring now lets it be
+-- called directly at a specific object.
+_zeroEChuTwo ::
+  Chu.OChu Bool (Chu.ChuONeg Bool (Chu.ChuOUnit Bool)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
+_zeroEChuTwo =
+  zeroE @(Chu.ChuOTensor Bool) @(Chu.ChuOPar Bool) @(Chu.OChu Bool)
 -- ---------------------------------------------------------------------------
 -- SepChu / associator helpers
 -- ---------------------------------------------------------------------------
@@ -693,7 +642,7 @@ chuTwoFuns = Chu.chuFunctionals chuTwoPos [True, False]
 
 -- | Positive carrier and functionals for the @Any@-based Chu object.
 chuAnyPos :: [Any]
-chuAnyPos = Chu.chuPosAll @Bool @ChuAny
+chuAnyPos = Chu.chuPosAll @Bool @Chu.ChuAny
 
 chuAnyFuns :: [Any -> Bool]
 chuAnyFuns = Chu.chuFunctionals chuAnyPos [True, False]
@@ -1784,8 +1733,8 @@ main = do
            in all (\a -> Chu.chuForward m1 a == Chu.chuForward m2 a) chuTwoPos
                 && all (\k -> all (\a -> Chu.chuBackward m1 k a == Chu.chuBackward m2 k a) chuTwoPos) [True, False],
         check "OChu MergeT plusT agrees with mergeBangChu on !ChuAny" $
-          let viaClass :: Chu.OChu Bool (Chu.ChuOTensor Bool (Chu.ChuOBang Bool ChuAny) (Chu.ChuOBang Bool ChuAny)) (Chu.ChuOBang Bool ChuAny)
-              viaClass = plusT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool ChuAny)
+          let viaClass :: Chu.OChu Bool (Chu.ChuOTensor Bool (Chu.ChuOBang Bool Chu.ChuAny) (Chu.ChuOBang Bool Chu.ChuAny)) (Chu.ChuOBang Bool Chu.ChuAny)
+              viaClass = plusT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuAny)
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.mergeBangChu
               eqAnyFun f g = all (\x -> f x == g x) chuAnyPos
@@ -1795,20 +1744,20 @@ main = do
            in all (\p -> Chu.chuForward m1 p == Chu.chuForward m2 p) (enumCartesian chuAnyPos chuAnyPos)
                 && all (\k -> eqAnyTensorNeg (Chu.chuBackward m1 k) (Chu.chuBackward m2 k)) chuAnyFuns,
         check "OChu ZeroT zeroT agrees with zeroBangChu on !ChuAny" $
-          let viaClass :: Chu.OChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOBang Bool ChuAny)
-              viaClass = zeroT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool ChuAny)
+          let viaClass :: Chu.OChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOBang Bool Chu.ChuAny)
+              viaClass = zeroT @(Chu.ChuOTensor Bool) @(Chu.OChu Bool) @(Chu.ChuOBang Bool Chu.ChuAny)
               m1 = ochuToChuMorphism viaClass
               m2 = Chu.zeroBangChu
            in Chu.chuForward m1 () == Chu.chuForward m2 ()
                 && all (\k -> Chu.chuBackward m1 k == Chu.chuBackward m2 k) chuAnyFuns,
         check "Chu mergeBangChu satisfies adjoint law on !ChuAny" $
-          let bangObj = Chu.bangChuObj (Chu.chuObject @Bool @ChuAny)
+          let bangObj = Chu.bangChuObj (Chu.chuObject @Bool @Chu.ChuAny)
               src = Chu.tensorChuObj bangObj bangObj
               tgt = bangObj
               pos = enumCartesian chuAnyPos chuAnyPos
            in all (\p -> all (\k -> Chu.chuLaw src tgt Chu.mergeBangChu p k) chuAnyFuns) pos,
         check "Chu zeroBangChu satisfies adjoint law on !ChuAny" $
-          let bangObj = Chu.bangChuObj (Chu.chuObject @Bool @ChuAny)
+          let bangObj = Chu.bangChuObj (Chu.chuObject @Bool @Chu.ChuAny)
               src = Chu.chuUnitObj
               tgt = bangObj
            in all (\k -> Chu.chuLaw src tgt Chu.zeroBangChu () k) chuAnyFuns,

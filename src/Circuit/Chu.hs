@@ -23,6 +23,8 @@
 -- library: proper ⊗ vs ⅋, proper additives, a real negation, and an internal
 -- hom that is not just @A⊥ ⊗ B@.  Promoting it to a base arrow makes the
 -- linear-logic distinctions measurable for the first time.
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Circuit.Chu
   ( -- * Dualising semiring
     ChuSemiring (..),
@@ -32,7 +34,9 @@ module Circuit.Chu
     PointedChuObj (..),
     ChuMorphism (..),
     Chu (..),
-    ChuObjShape (..),
+    ChuPosType,
+    ChuNegType,
+
     negateChu,
     idChu,
     composeChu,
@@ -112,6 +116,7 @@ module Circuit.Chu
     ChuThree (..),
     ChuDouble01 (..),
     ChuDelivery (..),
+    ChuAny (..),
     swapChu,
     dnUnitChu,
     dnCounitChu,
@@ -150,6 +155,7 @@ import Circuit.Dagger (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Ends (Ends (..), In (..), Out (..), close, companion, conjoint)
 import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), Tensor (..), Unit, WhyNotIntro (..), WhyNotMonoid (..))
 import Data.Kind (Type)
+import Data.Monoid (Any (..))
 import Data.Proxy (Proxy (..))
 import Data.Type.Bool (If)
 import Data.Traversable (sequenceA)
@@ -263,16 +269,51 @@ composeChu (ChuMorphism f2 g2) (ChuMorphism f1 g1) =
 -- Chu as a base arrow
 -- ---------------------------------------------------------------------------
 
--- | Object-shape evidence for the 'Category' instance.  Every object of
--- @Chu(C, ⊥)@ is a 'ChuObj'; this class exposes its carriers so that
--- identity and composition can be typed uniformly.
-class ChuObjShape a where
-  type ChuPosType a :: Type
-  type ChuNegType a :: Type
+-- | Closed type family giving the positive carrier of a Chu object tag.
+--
+-- Every object of @Chu(C, ⊥)@ is ultimately a 'ChuObj'; this family exposes
+-- the positive carrier so that identity and composition can be typed
+-- uniformly without a separate type class.
+type family ChuPosType a :: Type where
+  ChuPosType (ChuObj t r arr p n) = p
+  ChuPosType (ChuOUnit r) = ()
+  ChuPosType (ChuOTensor r a b) = (ChuPosType a, ChuPosType b)
+  ChuPosType (ChuONeg r a) = ChuNegType a
+  ChuPosType ChuTwo = Bool
+  ChuPosType ChuThree = Maybe Bool
+  ChuPosType ChuDouble01 = Bool
+  ChuPosType ChuDelivery = Bool
+  ChuPosType ChuAny = Any
+  ChuPosType (ChuOLolli r a b) = ChuParPos (ChuNegType a) (ChuPosType a) (ChuPosType b) (ChuNegType b)
+  ChuPosType (ChuOWith r a b) = (ChuPosType a, ChuPosType b)
+  ChuPosType (ChuOPlus r a b) = Either (ChuPosType a) (ChuPosType b)
+  ChuPosType (ChuOPar r a b) = ChuParPos (ChuPosType a) (ChuNegType a) (ChuPosType b) (ChuNegType b)
+  ChuPosType (ChuOTop r) = ()
+  ChuPosType (ChuOZero r) = Void
+  ChuPosType (ChuOBang r a) = ChuPosType a
+  ChuPosType (ChuOWhyNot r a) = ChuNegType a -> r
 
-instance ChuObjShape (ChuObj t r arr (p :: Type) (n :: Type)) where
-  type ChuPosType (ChuObj t r arr p n) = p
-  type ChuNegType (ChuObj t r arr p n) = n
+-- | Closed type family giving the negative carrier of a Chu object tag.
+--
+-- See 'ChuPosType' for motivation; this is the dual side.
+type family ChuNegType a :: Type where
+  ChuNegType (ChuObj t r arr p n) = n
+  ChuNegType (ChuOUnit r) = r
+  ChuNegType (ChuOTensor r a b) = ChuTensorNeg (ChuPosType a) (ChuNegType a) (ChuPosType b) (ChuNegType b)
+  ChuNegType (ChuONeg r a) = ChuPosType a
+  ChuNegType ChuTwo = Bool
+  ChuNegType ChuThree = Maybe Bool
+  ChuNegType ChuDouble01 = Bool
+  ChuNegType ChuDelivery = Bool
+  ChuNegType ChuAny = Any
+  ChuNegType (ChuOLolli r a b) = (ChuPosType a, ChuNegType b)
+  ChuNegType (ChuOWith r a b) = Either (ChuNegType a) (ChuNegType b)
+  ChuNegType (ChuOPlus r a b) = (ChuNegType a, ChuNegType b)
+  ChuNegType (ChuOPar r a b) = (ChuNegType a, ChuNegType b)
+  ChuNegType (ChuOTop r) = Void
+  ChuNegType (ChuOZero r) = ()
+  ChuNegType (ChuOBang r a) = ChuPosType a -> r
+  ChuNegType (ChuOWhyNot r a) = ChuNegType a
 
 -- | @Chu t r arr@ is the Chu construction as a base arrow.  Objects are
 -- 'ChuObj's; morphisms are adjoint pairs wrapped by the 'Chu' constructor.
@@ -282,7 +323,7 @@ newtype Chu (t :: Type -> Type -> Type) (r :: Type) (arr :: Type -> Type -> Type
     Chu t r arr a b
 
 instance (Category arr) => Category (Chu t r arr) where
-  type Ob (Chu t r arr) a = (ChuObjShape a, Ob arr (ChuPosType a), Ob arr (ChuNegType a))
+  type Ob (Chu t r arr) a = (Ob arr (ChuPosType a), Ob arr (ChuNegType a))
 
   id :: forall a. (Ob (Chu t r arr) a) => Chu t r arr a a
   id = Chu (idChu :: ChuMorphism t r arr (ChuPosType a) (ChuNegType a) (ChuPosType a) (ChuNegType a))
@@ -824,14 +865,14 @@ chuExtensional _ =
 -- subcategory: the room where @A ≅ A⊥⊥@ and the associator pentagon lives.
 -- 'SepChu' is a synonym for this reading.
 
--- | A type-level Chu object: a 'ChuObjShape' together with a canonical value
--- and finite carrier enumerations.
+-- | A type-level Chu object: a tag with a canonical 'ChuObj' value and
+-- finite carrier enumerations.
 --
 -- 'chuPosAll' and 'chuNegAll' are used by separation / extensionality oracles
 -- and by enumeration of tensor / par negatives.  They default to a runtime
 -- error; only objects that actually participate in finite oracles need to
 -- supply them.
-class (ChuObjShape a) => ChuObject (r :: Type) a where
+class ChuObject (r :: Type) a where
   chuObject :: ChuObj (,) r (->) (ChuPosType a) (ChuNegType a)
   chuPosAll :: [ChuPosType a]
   chuPosAll = error "chuPosAll: not defined for this object"
@@ -899,10 +940,6 @@ type family ChuNegNonEmpty (a :: Type) :: Bool where
 -- | Unit object type for 'OChu'.
 data ChuOUnit (r :: Type) = ChuOUnit
 
-instance ChuObjShape (ChuOUnit r) where
-  type ChuPosType (ChuOUnit r) = ()
-  type ChuNegType (ChuOUnit r) = r
-
 instance ChuObject r (ChuOUnit r) where
   chuObject = chuUnitObj
   chuPosAll = [()]
@@ -916,10 +953,6 @@ instance ChuExtensional r (ChuOUnit r)
 data ChuOTensor (r :: Type) a b = ChuOTensor
 
 type instance Unit (ChuOTensor r) = ChuOUnit r
-
-instance ChuObjShape (ChuOTensor r a b) where
-  type ChuPosType (ChuOTensor r a b) = (ChuPosType a, ChuPosType b)
-  type ChuNegType (ChuOTensor r a b) = ChuTensorNeg (ChuPosType a) (ChuNegType a) (ChuPosType b) (ChuNegType b)
 
 instance
   (Eq r, ChuObject r a, ChuObject r b) =>
@@ -940,10 +973,6 @@ instance (Eq r, ChuExtensional r a, ChuExtensional r b) => ChuExtensional r (Chu
 -- extensional, and conversely.
 data ChuONeg (r :: Type) a = ChuONeg
 
-instance ChuObjShape (ChuONeg r a) where
-  type ChuPosType (ChuONeg r a) = ChuNegType a
-  type ChuNegType (ChuONeg r a) = ChuPosType a
-
 instance (ChuObject r a) => ChuObject r (ChuONeg r a) where
   chuObject = negateChu (chuObject @r @a)
   chuPosAll = chuNegAll @r @a
@@ -955,10 +984,6 @@ instance (ChuSeparated r a) => ChuExtensional r (ChuONeg r a)
 
 -- | The self-dual two-point Chu object used in the oracles.
 data ChuTwo = ChuTwo
-
-instance ChuObjShape ChuTwo where
-  type ChuPosType ChuTwo = Bool
-  type ChuNegType ChuTwo = Bool
 
 instance ChuObject Bool ChuTwo where
   chuObject = ChuObj (uncurry (==))
@@ -977,10 +1002,6 @@ instance ChuExtensional Bool ChuTwo
 -- object separated and extensional.
 data ChuThree = ChuThree
 
-instance ChuObjShape ChuThree where
-  type ChuPosType ChuThree = Maybe Bool
-  type ChuNegType ChuThree = Maybe Bool
-
 instance ChuObject Bool ChuThree where
   chuObject = ChuObj (uncurry (<=))
   chuPosAll = [Nothing, Just False, Just True]
@@ -997,10 +1018,6 @@ instance ChuExtensional Bool ChuThree
 -- subset so the finite oracles remain runnable.  The pairing lands in
 -- 'Double' via the existing 'ChuSemiring' instance.
 data ChuDouble01 = ChuDouble01
-
-instance ChuObjShape ChuDouble01 where
-  type ChuPosType ChuDouble01 = Bool
-  type ChuNegType ChuDouble01 = Bool
 
 instance ChuObject Double ChuDouble01 where
   chuObject = ChuObj chuDouble01Pair
@@ -1024,10 +1041,6 @@ instance ChuExtensional Double ChuDouble01
 -- carriers stay finite and the oracles remain runnable.
 data ChuDelivery = ChuDelivery
 
-instance ChuObjShape ChuDelivery where
-  type ChuPosType ChuDelivery = Bool
-  type ChuNegType ChuDelivery = Bool
-
 instance ChuObject Bool ChuDelivery where
   chuObject = ChuObj chuDeliveryPair
     where
@@ -1044,6 +1057,19 @@ instance ChuSeparated Bool ChuDelivery
 
 instance ChuExtensional Bool ChuDelivery
 
+-- | A tiny self-dual Chu object over @Any@ (disjunction monoid) with equality
+-- pairing. Used to test the bimonoid on @!A@ from a 'Monoid' on @A⁺@.
+data ChuAny = ChuAny
+
+instance ChuObject Bool ChuAny where
+  chuObject = ChuObj (\(Any x, Any y) -> x == y)
+  chuPosAll = [Any False, Any True]
+  chuNegAll = [Any False, Any True]
+
+instance ChuSeparated Bool ChuAny
+
+instance ChuExtensional Bool ChuAny
+
 -- | The object-indexed Chu construction as a base arrow.
 newtype OChu (r :: Type) (a :: Type) (b :: Type) = OChu {unOChu :: Chu (,) r (->) a b}
 
@@ -1057,14 +1083,29 @@ type SepChu = OChu
 
 instance Category (OChu r) where
   type Ob (OChu r) a = (ChuSeparated r a, ChuExtensional r a)
-  id :: forall a. (Ob (OChu r) a) => OChu r a a
+  id :: forall a. OChu r a a
   id = OChu id
-  (.) :: forall a b c. (Ob (OChu r) a, Ob (OChu r) b, Ob (OChu r) c) => OChu r b c -> OChu r a b -> OChu r a c
+  (.) :: forall a b c. OChu r b c -> OChu r a b -> OChu r a c
   OChu g . OChu f = OChu (g . f)
 
 -- | Symmetric braiding for the Chu tensor over @Set@.
 swapChu ::
-  ChuMorphism (,) r (->) (a, c) (ChuTensorNeg a b c d) (c, a) (ChuTensorNeg c d a b)
+  forall r a b.
+  ( ChuPosType (ChuOTensor r a b) ~ (ChuPosType a, ChuPosType b),
+    ChuNegType (ChuOTensor r a b)
+      ~ ChuTensorNeg (ChuPosType a) (ChuNegType a) (ChuPosType b) (ChuNegType b),
+    ChuPosType (ChuOTensor r b a) ~ (ChuPosType b, ChuPosType a),
+    ChuNegType (ChuOTensor r b a)
+      ~ ChuTensorNeg (ChuPosType b) (ChuNegType b) (ChuPosType a) (ChuNegType a)
+  ) =>
+  ChuMorphism
+    (,)
+    r
+    (->)
+    (ChuPosType (ChuOTensor r a b))
+    (ChuNegType (ChuOTensor r a b))
+    (ChuPosType (ChuOTensor r b a))
+    (ChuNegType (ChuOTensor r b a))
 swapChu = ChuMorphism (\(x, y) -> (y, x)) (\(ChuTensorNeg h k) -> ChuTensorNeg k h)
 
 instance Tensor (ChuOTensor r) (OChu r) where
@@ -1080,8 +1121,8 @@ instance Tensor (ChuOTensor r) (OChu r) where
   unitr' = OChu (Chu (rightUnitorChuInv (chuObject @r @a)))
 
 instance Action (ChuOTensor r) (OChu r) where
-  swap :: forall a b. OChu r (ChuOTensor r a b) (ChuOTensor r b a)
-  swap = OChu (Chu swapChu)
+  swap :: forall (a :: Type) (b :: Type). OChu r (ChuOTensor r a b) (ChuOTensor r b a)
+  swap = OChu (Chu (swapChu @r @a @b))
 
 -- | Monoidal structure on the object-level Chu tensor.
 --
@@ -1135,10 +1176,6 @@ dnCounitChu =
 -- | Object-level linear implication @A ⊸ B = A⊥ ⅋ B@.
 data ChuOLolli (r :: Type) a b = ChuOLolli
 
-instance ChuObjShape (ChuOLolli r a b) where
-  type ChuPosType (ChuOLolli r a b) = ChuParPos (ChuNegType a) (ChuPosType a) (ChuPosType b) (ChuNegType b)
-  type ChuNegType (ChuOLolli r a b) = (ChuPosType a, ChuNegType b)
-
 instance
   (Eq r, ChuObject r a, ChuObject r b) =>
   ChuObject r (ChuOLolli r a b)
@@ -1158,10 +1195,6 @@ instance (Eq r, ChuExtensional r a, ChuExtensional r b) => ChuExtensional r (Chu
 -- empty positive carrier (e.g. @A & 0@), distinct negative injections cannot
 -- be separated, so the instance is not asserted.
 data ChuOWith (r :: Type) a b = ChuOWith
-
-instance ChuObjShape (ChuOWith r a b) where
-  type ChuPosType (ChuOWith r a b) = (ChuPosType a, ChuPosType b)
-  type ChuNegType (ChuOWith r a b) = Either (ChuNegType a) (ChuNegType b)
 
 instance
   (ChuObject r a, ChuObject r b) =>
@@ -1189,10 +1222,6 @@ instance
 -- be separated, so the instance is not asserted.
 data ChuOPlus (r :: Type) a b = ChuOPlus
 
-instance ChuObjShape (ChuOPlus r a b) where
-  type ChuPosType (ChuOPlus r a b) = Either (ChuPosType a) (ChuPosType b)
-  type ChuNegType (ChuOPlus r a b) = (ChuNegType a, ChuNegType b)
-
 instance
   (ChuObject r a, ChuObject r b) =>
   ChuObject r (ChuOPlus r a b)
@@ -1218,10 +1247,6 @@ instance (ChuExtensional r a, ChuExtensional r b) => ChuExtensional r (ChuOPlus 
 -- disjunction 'ChuOPlus'.
 data ChuOPar (r :: Type) a b = ChuOPar
 
-instance ChuObjShape (ChuOPar r a b) where
-  type ChuPosType (ChuOPar r a b) = ChuParPos (ChuPosType a) (ChuNegType a) (ChuPosType b) (ChuNegType b)
-  type ChuNegType (ChuOPar r a b) = (ChuNegType a, ChuNegType b)
-
 instance
   (Eq r, ChuObject r a, ChuObject r b) =>
   ChuObject r (ChuOPar r a b)
@@ -1237,10 +1262,6 @@ instance (Eq r, ChuExtensional r a, ChuExtensional r b) => ChuExtensional r (Chu
 -- | Object-level additive unit @⊤@.
 data ChuOTop (r :: Type) = ChuOTop
 
-instance ChuObjShape (ChuOTop r) where
-  type ChuPosType (ChuOTop r) = ()
-  type ChuNegType (ChuOTop r) = Void
-
 instance ChuObject r (ChuOTop r) where
   chuObject = topChuObj
   chuPosAll = [()]
@@ -1252,10 +1273,6 @@ instance ChuExtensional r (ChuOTop r)
 
 -- | Object-level additive zero @0@.
 data ChuOZero (r :: Type) = ChuOZero
-
-instance ChuObjShape (ChuOZero r) where
-  type ChuPosType (ChuOZero r) = Void
-  type ChuNegType (ChuOZero r) = ()
 
 instance ChuObject r (ChuOZero r) where
   chuObject = zeroChuObj
@@ -1596,10 +1613,6 @@ swapParChu =
 -- | Object-level @!A@.
 data ChuOBang (r :: Type) a = ChuOBang
 
-instance ChuObjShape (ChuOBang r a) where
-  type ChuPosType (ChuOBang r a) = ChuPosType a
-  type ChuNegType (ChuOBang r a) = ChuPosType a -> r
-
 instance (ChuObject r a) => ChuObject r (ChuOBang r a) where
   chuObject = bangChuObj (chuObject @r @a)
 
@@ -1609,10 +1622,6 @@ instance (ChuObject r a) => ChuExtensional r (ChuOBang r a)
 
 -- | Object-level @?A = (!A⊥)⊥@.
 data ChuOWhyNot (r :: Type) a = ChuOWhyNot
-
-instance ChuObjShape (ChuOWhyNot r a) where
-  type ChuPosType (ChuOWhyNot r a) = ChuNegType a -> r
-  type ChuNegType (ChuOWhyNot r a) = ChuNegType a
 
 instance (ChuObject r a) => ChuObject r (ChuOWhyNot r a) where
   chuObject = whyNotChuObj (chuObject @r @a)
@@ -1644,7 +1653,7 @@ instance WhyNotIntro (ChuOTensor r) (OChu r) where
 -- unit and cannot be instantiated for 'OChu'.  The tensor-generic
 -- 'Circuit.Dagger.CopyT' / 'DiscardT' classes below are the fix: they use
 -- the object-level tensor ('ChuOTensor') and unit ('ChuOUnit').
-instance (Ob (OChu r) a) => WhyNotMonoid (ChuOTensor r) (ChuOPar r) (OChu r) where
+instance WhyNotMonoid (ChuOTensor r) (ChuOPar r) (OChu r) where
   mergeE = OChu (Chu mergeWhyNotParChu)
   zeroE = OChu (Chu zeroWhyNotParChu)
 
