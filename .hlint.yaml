@@ -1,0 +1,32 @@
+# circuits hlint policy — approved 2026-08-17
+#
+# Suppressed (house style — explicit point-wise code and law witnesses,
+# not point-free rewrites):
+- ignore: {name: "Avoid lambda"}
+- ignore: {name: "Avoid lambda using `infix`"}
+- ignore: {name: "Eta reduce"}
+- ignore: {name: "Use tuple-section"}
+- ignore: {name: "Use null"}
+- ignore: {name: "Use const"}
+- ignore: {name: "Use bimap"}
+- ignore: {name: "Use replicateM"}
+- ignore: {name: "Use replicateM_"}
+- ignore: {name: "Use curry"}
+- ignore: {name: "Use second"}
+#
+# Suppressed (conflict with other tooling or intentional naming):
+- ignore: {name: "Use head"}        # conflicts with -Wx-partial warnings
+- ignore: {name: "Use sum"}         # often clearer as explicit foldr in witness code
+- ignore: {name: "Use camelCase", within: Circuit.Logics.Laws}
+- ignore: {name: "Use camelCase", within: Circuit.Diff.Daisyworld}
+- ignore: {name: "Use camelCase", within: Circuit.Diff.DubinsChase}
+#
+# Suppressed (numhask redefines these operators/classes; hlint's Prelude-based
+# suggestion changes semantics or adds wrong constraints):
+- ignore: {name: "Use -", within: NumHask.Algebra.Additive}
+- ignore: {name: "Use logBase", within: NumHask.Algebra.Field}
+- ignore: {name: "Use tan", within: NumHask.Algebra.Field}
+#
+# Kept active (fixed in source, never ignored):
+#   Unused LANGUAGE pragma — dead pragmas removed
+#   Use newtype instead of data — applied where appropriate

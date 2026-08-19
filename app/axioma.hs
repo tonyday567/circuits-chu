@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -108,7 +107,10 @@ enumCartesian xs ys = [(x, y) | x <- xs, y <- ys]
 -- not supplied by the 'ChuObject' class (e.g. exponentials).
 chuTensorNegsExplicit ::
   (Eq r, Eq a, Eq c) =>
-  [a] -> [b] -> [c] -> [d] ->
+  [a] ->
+  [b] ->
+  [c] ->
+  [d] ->
   Chu.ChuObj (,) r (->) a b ->
   Chu.ChuObj (,) r (->) c d ->
   [Chu.ChuTensorNeg a b c d]
@@ -123,7 +125,10 @@ chuTensorNegsExplicit as bs cs ds (Chu.ChuObj r) (Chu.ChuObj s) =
 -- not supplied by the 'ChuObject' class (e.g. exponentials).
 chuParPossExplicit ::
   (Eq r, Eq b, Eq d) =>
-  [a] -> [b] -> [c] -> [d] ->
+  [a] ->
+  [b] ->
+  [c] ->
+  [d] ->
   Chu.ChuObj (,) r (->) a b ->
   Chu.ChuObj (,) r (->) c d ->
   [Chu.ChuParPos a b c d]
@@ -163,7 +168,7 @@ chuMorphismLaw src tgt mor as ds =
 
 -- | Equality of two Chu morphisms over explicit finite carrier lists.
 eqChuMorphism ::
-  (Eq a, Eq b, Eq c) =>
+  (Eq b, Eq c) =>
   [a] ->
   [d] ->
   Chu.ChuMorphism (,) r (->) a b c d ->
@@ -315,7 +320,7 @@ hasDiscardChuTwo =
 -- @e(p, backward n) = e(n, forward p)@ for all @p, n :: A⁺@.
 isSelfDualChu ::
   forall r a.
-  (Eq r, Eq (Chu.ChuPosType a), Eq (Chu.ChuNegType a), Chu.ChuObject r a) =>
+  (Eq r, Eq (Chu.ChuPosType a), Chu.ChuObject r a) =>
   Proxy r ->
   Proxy a ->
   Bool
@@ -359,6 +364,7 @@ ochuToChuMorphism (Chu.OChu (Chu.Chu m)) = m
 _zeroEChuTwo ::
   Chu.OChu Bool (Chu.ChuONeg Bool (Chu.ChuOUnit Bool)) (Chu.ChuOWhyNot Bool Chu.ChuTwo)
 _zeroEChuTwo = Chu.zeroEOChu
+
 -- ---------------------------------------------------------------------------
 -- SepChu / associator helpers
 -- ---------------------------------------------------------------------------
@@ -487,6 +493,7 @@ eqEndo3L ::
     ((Bool, Bool), Bool)
     (Chu.ChuTensorNeg (Bool, Bool) (Chu.ChuTensorNeg Bool Bool Bool Bool) Bool Bool) ->
   Bool
+
 -- | Enumerated negative carrier of @(chuTwo ⊗ chuTwo) ⊗ chuTwo@.
 chuTwoNeg3L ::
   [Chu.ChuTensorNeg (Bool, Bool) (Chu.ChuTensorNeg Bool Bool Bool Bool) Bool Bool]
@@ -933,7 +940,7 @@ chuDeliveryNeg = Chu.chuNegAll @Bool @Chu.ChuDelivery
 -- | Forward-only unit-law oracle for an 'OChu' object.
 checkChuUnitlForward ::
   forall r (a :: Type).
-  (Eq r, Eq (Chu.ChuPosType a), Chu.ChuSeparated r a, Chu.ChuExtensional r a) =>
+  (Eq (Chu.ChuPosType a), Chu.ChuSeparated r a) =>
   Proxy r ->
   Proxy a ->
   String ->
@@ -954,7 +961,7 @@ checkChuUnitlForward _ _ name =
 -- | Forward-only right unit-law oracle for an 'OChu' object.
 checkChuUnitrForward ::
   forall r (a :: Type).
-  (Eq r, Eq (Chu.ChuPosType a), Chu.ChuSeparated r a, Chu.ChuExtensional r a) =>
+  (Eq (Chu.ChuPosType a), Chu.ChuSeparated r a) =>
   Proxy r ->
   Proxy a ->
   String ->
@@ -975,7 +982,7 @@ checkChuUnitrForward _ _ name =
 -- | Forward-only associator inverse oracle for an 'OChu' object.
 checkChuAssocInversesForward ::
   forall r (a :: Type).
-  (Eq r, Eq (Chu.ChuPosType a), Chu.ChuSeparated r a, Chu.ChuExtensional r a) =>
+  (Eq r, Eq (Chu.ChuPosType a), Chu.ChuSeparated r a) =>
   Proxy r ->
   Proxy a ->
   String ->
@@ -1004,7 +1011,7 @@ checkChuAssocInversesForward _ _ name =
 -- | Forward-only pentagon oracle for an 'OChu' object.
 checkChuPentagonForward ::
   forall r (a :: Type).
-  (Eq r, Eq (Chu.ChuPosType a), Chu.ChuSeparated r a, Chu.ChuExtensional r a) =>
+  (Eq r, Eq (Chu.ChuPosType a), Chu.ChuSeparated r a) =>
   Proxy r ->
   Proxy a ->
   String ->
@@ -1240,7 +1247,6 @@ main = do
                 && eqChuMorphism chuTwoPos chuTwoPos lhs2 Chu.idChu,
         check "Chu copair(f,g) composed with injections recovers f and g" $
           let plusObj = Chu.oplusChuObj chuTwo chuTwo
-              plusNeg = [(x, y) | x <- chuTwoPos, y <- chuTwoPos]
               copairFG = Chu.copairChu chuNot Chu.idChu
               lhs1 = Chu.composeChu copairFG Chu.inj1Chu
               lhs2 = Chu.composeChu copairFG Chu.inj2Chu
@@ -1248,32 +1254,28 @@ main = do
                 && eqChuMorphism chuTwoPos chuTwoPos lhs1 chuNot
                 && eqChuMorphism chuTwoPos chuTwoPos lhs2 Chu.idChu,
         check "Chu A & ⊤ is isomorphic to A" $
-          let topRObj = Chu.withChuObj chuTwo Chu.topChuObj
-              topRNegs = map Left chuTwoPos
+          let topRNegs = map Left chuTwoPos
               topRPos = [(x, ()) | x <- chuTwoPos]
               iso = Chu.composeChu Chu.withTopRInvChu Chu.withTopRChu
               iso' = Chu.composeChu Chu.withTopRChu Chu.withTopRInvChu
            in eqChuMorphism chuTwoPos chuTwoPos iso Chu.idChu
                 && eqChuMorphism topRPos topRNegs iso' (Chu.idChu :: Chu.ChuMorphism (,) Bool (->) (Bool, ()) (Either Bool Void) (Bool, ()) (Either Bool Void)),
         check "Chu ⊤ & A is isomorphic to A" $
-          let topLObj = Chu.withChuObj Chu.topChuObj chuTwo
-              topLNegs = map Right chuTwoPos
+          let topLNegs = map Right chuTwoPos
               topLPos = [((), x) | x <- chuTwoPos]
               iso = Chu.composeChu Chu.withTopLInvChu Chu.withTopLChu
               iso' = Chu.composeChu Chu.withTopLChu Chu.withTopLInvChu
            in eqChuMorphism chuTwoPos chuTwoPos iso Chu.idChu
                 && eqChuMorphism topLPos topLNegs iso' (Chu.idChu :: Chu.ChuMorphism (,) Bool (->) ((), Bool) (Either Void Bool) ((), Bool) (Either Void Bool)),
         check "Chu 0 ⊕ A is isomorphic to A" $
-          let plusLObj = Chu.oplusChuObj Chu.zeroChuObj chuTwo
-              plusLNegs = [((), x) | x <- chuTwoPos]
+          let plusLNegs = [((), x) | x <- chuTwoPos]
               plusLPos = map Right chuTwoPos
               iso = Chu.composeChu Chu.zeroPlusLInvChu Chu.zeroPlusLChu
               iso' = Chu.composeChu Chu.zeroPlusLChu Chu.zeroPlusLInvChu
            in eqChuMorphism chuTwoPos chuTwoPos iso Chu.idChu
                 && eqChuMorphism plusLPos plusLNegs iso' (Chu.idChu :: Chu.ChuMorphism (,) Bool (->) (Either Void Bool) ((), Bool) (Either Void Bool) ((), Bool)),
         check "Chu A ⊕ 0 is isomorphic to A" $
-          let plusRObj = Chu.oplusChuObj chuTwo Chu.zeroChuObj
-              plusRNegs = [(x, ()) | x <- chuTwoPos]
+          let plusRNegs = [(x, ()) | x <- chuTwoPos]
               plusRPos = map Left chuTwoPos
               iso = Chu.composeChu Chu.zeroPlusRInvChu Chu.zeroPlusRChu
               iso' = Chu.composeChu Chu.zeroPlusRChu Chu.zeroPlusRInvChu
@@ -1666,8 +1668,7 @@ main = do
               mor = Chu.zeroWhyNotChu
            in all (\d -> Chu.chuLaw Chu.chuUnitObj why mor () d) chuTwoPos,
         check "Exponential OChu digging is the identity on !ChuTwo" $
-          let bangObj = Chu.bangChuObj chuTwo
-              mor :: Chu.ChuMorphism (,) Bool (->) Bool (Bool -> Bool) Bool (Bool -> Bool)
+          let mor :: Chu.ChuMorphism (,) Bool (->) Bool (Bool -> Bool) Bool (Bool -> Bool)
               mor = Chu.digChu
            in all (\a -> Chu.chuForward mor a == Chu.chuForward Chu.idChu a) chuTwoPos
                 && all (\f -> all (\a -> Chu.chuBackward mor f a == Chu.chuBackward Chu.idChu f a) chuTwoPos) chuTwoFuns,
@@ -1757,14 +1758,8 @@ main = do
         check "Net ChuOTensor ChuOUnit bimonoid rows typecheck" $
           let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
               copyN = Net.Lift Chu.unitlOChu'
-              discardN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              discardN = Net.Lift id
               plusN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOUnit Bool)
               plusN = Net.Lift Chu.unitlOChu
-              zeroN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              zeroN = Net.Lift id
-              swapN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              swapN = Net.Swap
               _composed = plusN . copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
            in True,
         -- First falsifier of traced-ochu: a Chu net can be interpreted via

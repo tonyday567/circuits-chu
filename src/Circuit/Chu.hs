@@ -10,6 +10,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 -- | The Chu construction over a monoidal base category.
 --
@@ -23,8 +24,6 @@
 -- library: proper ⊗ vs ⅋, proper additives, a real negation, and an internal
 -- hom that is not just @A⊥ ⊗ B@.  Promoting it to a base arrow makes the
 -- linear-logic distinctions measurable for the first time.
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
-
 module Circuit.Chu
   ( -- * Dualising semiring
     ChuSemiring (..),
@@ -36,7 +35,6 @@ module Circuit.Chu
     Chu (..),
     ChuPosType,
     ChuNegType,
-
     negateChu,
     idChu,
     composeChu,
@@ -129,7 +127,6 @@ module Circuit.Chu
     discardTOChu,
     plusTOChu,
     zeroTOChu,
-
     ChuOUnit (..),
     ChuOTensor (..),
     ChuONeg (..),
@@ -183,11 +180,11 @@ import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponen
 import Data.Kind (Type)
 import Data.Monoid (Any (..))
 import Data.Proxy (Proxy (..))
-import Data.Type.Bool (If)
 import Data.Traversable (sequenceA)
+import Data.Type.Bool (If)
 import Data.Void (Void, absurd)
 import Prelude hiding (curry, id, uncurry, (.))
-import qualified Prelude as Pre
+import Prelude qualified as Pre
 
 -- ---------------------------------------------------------------------------
 -- Minimal semiring
@@ -624,7 +621,7 @@ withTopLInvChu = ChuMorphism snd Right
 -- | Left unit isomorphism @A → 0 ⊕ A@.
 zeroPlusLChu ::
   ChuMorphism (,) r (->) a b (Either Void a) ((), b)
-zeroPlusLChu = ChuMorphism Right (\(_, n) -> n)
+zeroPlusLChu = ChuMorphism Right snd
 {-# INLINE zeroPlusLChu #-}
 
 -- | Inverse of 'zeroPlusLChu'.
@@ -636,7 +633,7 @@ zeroPlusLInvChu = ChuMorphism (either absurd id) (\n -> ((), n))
 -- | Right unit isomorphism @A → A ⊕ 0@.
 zeroPlusRChu ::
   ChuMorphism (,) r (->) a b (Either a Void) (b, ())
-zeroPlusRChu = ChuMorphism Left (\(n, _) -> n)
+zeroPlusRChu = ChuMorphism Left fst
 {-# INLINE zeroPlusRChu #-}
 
 -- | Inverse of 'zeroPlusRChu'.
@@ -799,10 +796,10 @@ chuTensorNegs _ _ =
       r = chuPair (chuObject @r @a)
       s = chuPair (chuObject @r @b)
    in [ ChuTensorNeg f g
-        | f <- functions as ds,
-          g <- functions cs bs,
-          all (\(a, c) -> r (a, g c) == s (c, f a)) (cartesian as cs)
-        ]
+      | f <- functions as ds,
+        g <- functions cs bs,
+        all (\(a, c) -> r (a, g c) == s (c, f a)) (cartesian as cs)
+      ]
 
 -- | Enumerate all 'ChuParPos' values for finite carriers.
 chuParPoss ::
@@ -819,10 +816,10 @@ chuParPoss _ _ =
       r = chuPair (chuObject @r @a)
       s = chuPair (chuObject @r @b)
    in [ ChuParPos f g
-        | f <- functions bs cs,
-          g <- functions ds as,
-          all (\(b, d) -> r (g d, b) == s (f b, d)) (cartesian bs ds)
-        ]
+      | f <- functions bs cs,
+        g <- functions ds as,
+        all (\(b, d) -> r (g d, b) == s (f b, d)) (cartesian bs ds)
+      ]
 
 -- | All functions from a finite domain to a finite codomain.
 --
@@ -1642,7 +1639,7 @@ leftUnitorParChuInv ::
 leftUnitorParChuInv (ChuObj e) =
   ChuMorphism
     (\x -> ChuParPos (\_ -> x) (\d -> e (x, d)))
-    (\(_, d) -> d)
+    snd
 {-# INLINE leftUnitorParChuInv #-}
 
 -- | Inverse of the right par unitor: @A → A ⅋ ⊥@ over @Set@.
@@ -1652,7 +1649,7 @@ rightUnitorParChuInv ::
 rightUnitorParChuInv (ChuObj e) =
   ChuMorphism
     (\x -> ChuParPos (\d -> e (x, d)) (\_ -> x))
-    (\(d, _) -> d)
+    fst
 {-# INLINE rightUnitorParChuInv #-}
 
 -- | Associator @(A ⅋ B) ⅋ C → A ⅋ (B ⅋ C)@ over @Set@.
