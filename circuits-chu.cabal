@@ -30,7 +30,7 @@ library
     Circuit.Chu
 
   build-depends:
-    base >=4.18 && <5,
+    base >=4.20 && <5,
     circuits,
 
 executable circuits-chu-axioma
@@ -39,8 +39,8 @@ executable circuits-chu-axioma
   main-is: axioma.hs
   hs-source-dirs: app
   build-depends:
-    base >=4.18 && <5,
+    base >=4.20 && <5,
     circuits,
     circuits-chu,
     circuits:{circuits-test-utils},
-    these >=1.2.1 && <1.3,
+    these >=1.1 && <1.3,
