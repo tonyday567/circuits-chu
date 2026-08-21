@@ -5,7 +5,6 @@
 
 module Main where
 
-import Circuit.Algebra qualified as Alg
 import Circuit.Boundary (Boundary (..), IsLinear, Linear (..), NotLinear, Stamped (..), isMark, isPayload)
 import Circuit.Category (Category (..), id, (.), (.>))
 import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
@@ -16,6 +15,7 @@ import Circuit.Dagger (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merge 
 import Circuit.Ends (Bias (..), Ends (..), HasDual (..), box, close, composeEnds0, copycat, ends, ends0, endsK, pairEnds, prefixIn, raceEnds, splay, splay0, suffixOut)
 import Circuit.Ends qualified as MedState
 import Circuit.FinRel
+import Circuit.Fragment qualified as Frag
 import Circuit.Hyper (Hyper, observe)
 import Circuit.Hyper qualified as HyperLoop
 import Circuit.Layer (bind, run)
@@ -1753,24 +1753,24 @@ main = do
            in True,
         -- Net wiring over Chu: the tensor-generic Net accepts ChuOTensor as
         -- its wiring product.  Without constrained class instances for OChu,
-        -- the bimonoid rows are supplied as explicit 'Net.Lift' morphisms on
+        -- the bimonoid rows are supplied as explicit 'Net.lift' morphisms on
         -- the unit object.
         check "Net ChuOTensor ChuOUnit bimonoid rows typecheck" $
-          let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              copyN = Net.Lift Chu.unitlOChu'
-              plusN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOUnit Bool)
-              plusN = Net.Lift Chu.unitlOChu
-              _composed = plusN . copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
+          let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
+              copyN = Net.lift Chu.unitlOChu'
+              plusN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOUnit Bool)
+              plusN = Net.lift Chu.unitlOChu
+              _composed = plusN . copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
            in True,
         -- First falsifier of traced-ochu: a Chu net can be interpreted via
         -- 'Net.bind' into a traced target category without needing 'Traced'
         -- on the source.  ForwardChu uses a closed carrier family so GHC can
         -- reduce 'ChuOTensor' carriers in polymorphic instance methods.
         check "Net.bind interprets Chu net into ForwardChu" $
-          let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              copyN = Net.Lift Chu.unitlOChu'
-              composedN :: Net.Net (Chu.ChuOTensor Bool) (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              composedN = Net.Lift Chu.unitlOChu . Net.Lift Chu.unitlOChu'
+          let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
+              copyN = Net.lift Chu.unitlOChu'
+              composedN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
+              composedN = Net.lift Chu.unitlOChu . Net.lift Chu.unitlOChu'
               copyViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
               copyViaBind = bind forwardChu copyN
               composedViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
