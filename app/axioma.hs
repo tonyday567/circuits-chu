@@ -6,7 +6,7 @@
 module Main where
 
 import Circuit.Boundary (Boundary (..), IsLinear, Linear (..), NotLinear, Stamped (..), isMark, isPayload)
-import Circuit.Category (Category (..), id, (.), (.>))
+import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
 import Circuit.ChannelPoly (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Chu (ChuObject (..))
@@ -27,7 +27,6 @@ import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, sc
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
 import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Fire (..), Lolli (..), Schedule (..), Shared (..), Tensor (..), WhyNotIntro (..), distL, distR, mix, sharedKnotBy, superpose)
 import Circuit.Tools.Test (approx, check)
-import Control.Arrow (Kleisli (..), runKleisli)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Kind (Type)
 import Data.List (foldl', isInfixOf, permutations, sort, uncons)
