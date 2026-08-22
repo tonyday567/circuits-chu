@@ -90,9 +90,9 @@ module Circuit.Chu
     assocChuInv,
     slideChu,
 
-    -- * Embedding from 'Circuit.Ends'
-    endsAsChu,
-    lawfulDimapEnds,
+    -- * Embedding from 'Circuit.Poles'
+    polesAsChu,
+    lawfulDimap,
 
     -- * Object-indexed Chu category (SepChu / OChu)
     ChuObject (..),
@@ -175,8 +175,9 @@ where
 import Circuit.Category (Category (..))
 import Circuit.Channel (Channel (..))
 import Circuit.Dagger (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
-import Circuit.Ends (Ends (..), In (..), Out (..), close, companion, conjoint)
-import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), Tensor (..), Unit, WhyNotIntro (..), WhyNotMonoid (..))
+import Circuit.Poles (Poles (..), In (..), Out (..), close, companion, conjoint)
+import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), WhyNotIntro (..), WhyNotMonoid (..))
+import Circuit.Tensor (Action (..), Tensor (..), Unit)
 import Data.Kind (Type)
 import Data.Monoid (Any (..))
 import Data.Proxy (Proxy (..))
@@ -232,7 +233,7 @@ newtype ChuObj t r arr a b = ChuObj
 
 -- | A pointed Chu object: a 'ChuObj' together with a chosen point pair.
 --
--- This is the separate wrapper used by 'endsAsChu' to retain the positive
+-- This is the separate wrapper used by 'polesAsChu' to retain the positive
 -- and negative points that witness a self-dual channel.
 data PointedChuObj t r arr a b = PointedChuObj
   { -- | Underlying Chu object.
@@ -1895,30 +1896,30 @@ zeroTOChu =
 {-# INLINE zeroTOChu #-}
 
 -- ---------------------------------------------------------------------------
--- Embedding from 'Circuit.Ends'
+-- Embedding from 'Circuit.Poles'
 -- ---------------------------------------------------------------------------
 
--- | Embed a symmetric end into a pointed Chu object.
+-- | Embed a symmetric pole into a pointed Chu object.
 --
--- A self-dual channel @Ends arr a a@ has write end @In arr a@ and read end
--- @Out arr a@.  'Circuit.Ends.close' is already the pairing
+-- A self-dual channel @Poles arr a a@ has write pole @In arr a@ and read pole
+-- @Out arr a@.  'Circuit.Poles.close' is already the pairing
 -- @In ⊗ Out → arr a a@, so the embedding is direct.  The point pair
 -- @(conjoint e, companion e)@ is retained as the chosen point of the pointed
 -- object.
-endsAsChu ::
-  Ends arr a a ->
+polesAsChu ::
+  Poles arr a a ->
   PointedChuObj (,) (arr a a) (->) (In arr a) (Out arr a)
-endsAsChu e = PointedChuObj (ChuObj (Pre.uncurry close)) (conjoint e) (companion e)
-{-# INLINE endsAsChu #-}
+polesAsChu e = PointedChuObj (ChuObj (Pre.uncurry close)) (conjoint e) (companion e)
+{-# INLINE polesAsChu #-}
 
--- | Apply a Chu endomorphism to a symmetric end.
+-- | Apply a Chu endomorphism to a symmetric pole.
 --
--- This is the lawful counterpart to the free 'Circuit.Ends.dimapEnds': the
+-- This is the lawful counterpart to the free 'Circuit.Poles.dimap': the
 -- forward and backward maps are an adjoint pair by construction of
 -- 'ChuMorphism'.  The Chu law is discharged by the type, not just tested.
-lawfulDimapEnds ::
+lawfulDimap ::
   ChuMorphism (,) (arr a a) (->) (In arr a) (Out arr a) (In arr a) (Out arr a) ->
-  Ends arr a a ->
-  Ends arr a a
-lawfulDimapEnds (ChuMorphism f g) e = Ends (f (conjoint e)) (g (companion e))
-{-# INLINE lawfulDimapEnds #-}
+  Poles arr a a ->
+  Poles arr a a
+lawfulDimap (ChuMorphism f g) e = Poles (f (conjoint e)) (g (companion e))
+{-# INLINE lawfulDimap #-}

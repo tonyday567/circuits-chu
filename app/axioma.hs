@@ -7,24 +7,25 @@ module Main where
 
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
-import Circuit.ChannelPoly (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
+import Circuit.Poly.Channel (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
 import Circuit.Dagger (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merge (..), MergeZero, Zero (..), transpose)
-import Circuit.Ends (Bias (..), Ends (..), HasDual (..), box, close, composeEnds0, copycat, ends, ends0, endsK, pairEnds, prefixIn, raceEnds, splay, splay0, suffixOut)
-import Circuit.Ends qualified as MedState
+import Circuit.Poles (Bias (..), Poles (..), HasDual (..), box, close, compose0, copycat, poles, poles0, polesK, pair, prefixIn, race, splay, splay0, suffixOut)
+import Circuit.Poles qualified as MedState
 import Circuit.FinRel
 import Circuit.Fragment qualified as Frag
 import Circuit.Hyper (Hyper, observe)
 import Circuit.Hyper qualified as HyperLoop
 import Circuit.Layer (bind, run)
-import Circuit.Loop (Loop (..))
-import Circuit.Mediate (Debt (..), FlushableResidual (..), LinearResidual (..), LinearityViolation (..), Mediator (..), PS (..), closeCertified, closeCertifiedWith, closeCertifiedWithBy, count, linear, medComult, medCounit, mediateLoop, mediateProcess, mediateSharedBody, mediateSharedBodyChecked, pairSum, runMediator, runMediatorState, runSharedBodyChecked)
+import Circuit.Trace (Trace (..))
 import Circuit.Net qualified as Net
 import Circuit.Poly (Dir, Eval (..), Mono, System, fromEvalSystem, lens, monoDir, monoIn, mooreSystem, runSystem, system)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
-import Circuit.Tensor (Action (..), BangCopy (..), BangWeaken (..), Bot, Exponential (..), Fire (..), Lolli (..), Schedule (..), Shared (..), Tensor (..), WhyNotIntro (..), distL, distR, mix, sharedKnotBy, superpose)
+import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), WhyNotIntro (..), distL, distR, mix)
+import Circuit.Shared (Fire (..), Schedule (..), Shared (..))
+import Circuit.Tensor (Action (..), Tensor (..), superpose)
 import Circuit.Tools.Test (approx, check)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Kind (Type)
@@ -1304,19 +1305,19 @@ main = do
               domainMat = Chu.deliveryMatrix domainAgents (map chuTo posts) :: [[Bool]]
               forwardOnlyMat = Chu.deliveryMatrix domainAgents (map (prefixTo . chuTo) posts) :: [[Bool]]
            in domainMat /= forwardOnlyMat,
-        -- Coherence: Loop/Dagger transpose and Chu negation on embedded Ends
+        -- Coherence: Trace/Dagger transpose and Chu negation on embedded Poles
         check "copycat witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Ends (->) () ()
+          let e :: Poles (->) () ()
               e = copycat
-              chu = Chu.pointedObj (Chu.endsAsChu e)
+              chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger id id :: Dagger (->) () ()
            in Chu.chuPair chu (conjoint e, companion e) () == Chu.chuPair chuNeg (companion e, conjoint e) ()
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Ends (->) Int Int
-              e = ends0 (const ()) (const 42)
-              chu = Chu.pointedObj (Chu.endsAsChu e)
+          let e :: Poles (->) Int Int
+              e = poles0 (const ()) (const 42)
+              chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger (const 42) (const 42) :: Dagger (->) Int Int
            in Chu.chuPair chu (conjoint e, companion e) 0 == Chu.chuPair chuNeg (companion e, conjoint e) 0
