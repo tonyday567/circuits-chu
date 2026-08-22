@@ -14,18 +14,16 @@ import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), Merge
 import Circuit.Dagger (Dagger (..), transpose)
 import Circuit.Poles (Bias (..), Poles (..), HasDual (..), box, close, compose0, copycat, poles, poles0, polesK, pair, prefixIn, race, splay, splay0, suffixOut)
 import Circuit.Poles qualified as MedState
-import Circuit.FinRel
+import Circuit.FinRel (FinObj (..))
 import Circuit.Fragment qualified as Frag
-import Circuit.Hyper (Hyper, observe)
-import Circuit.Hyper qualified as HyperLoop
 import Circuit.Layer (bind, run)
 import Circuit.Trace (Trace (..))
 import Circuit.Net qualified as Net
 import Circuit.Poly (Dir, Eval (..), Mono, System, fromEvalSystem, lens, monoDir, monoIn, mooreSystem, runSystem, system)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
-import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), WhyNotIntro (..), distL, distR, mix)
-import Circuit.Shared (Fire (..), Schedule (..), Shared (..))
+import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
+import Circuit.Par (Bot, distL, distR, mix)
 import Circuit.Tensor (Action (..), Tensor (..), superpose)
 import Circuit.Tools.Test (approx, check)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
@@ -81,8 +79,6 @@ instance Traced (Chu.ChuOTensor r) (ForwardChu r) where
 -- underlying 'Chu' category, no bridging coercion is needed.
 forwardChu :: Chu.OChu r a b -> ForwardChu r a b
 forwardChu (Chu.OChu (Chu.Chu (Chu.ChuMorphism f _))) = ForwardChu f
-
-type F = Bool
 
 type N1 = FinObj 1
 
