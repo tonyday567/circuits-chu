@@ -56,5 +56,6 @@ executable circuits-chu-axioma
     base >=4.20 && <5,
     circuits >=0.3 && <0.4,
     circuits-chu,
+    circuits-prob >=0.1 && <0.2,
     circuits-tools,
     these >=1.1 && <1.3,
