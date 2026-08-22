@@ -10,3 +10,4 @@ dist-mcabal/
 .sabela/
 .ghcid-output
 .ghcid-trigger
+cabal.project.local
