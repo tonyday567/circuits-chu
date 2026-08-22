@@ -5,27 +5,27 @@
 
 module Main where
 
+import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), MergeZero, Zero (..))
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
-import Circuit.Poly.Channel (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
-import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), MergeZero, Zero (..))
 import Circuit.Dagger (Dagger (..), transpose)
-import Circuit.Poles (Bias (..), Poles (..), HasDual (..), box, close, compose0, copycat, poles, poles0, polesK, pair, prefixIn, race, splay, splay0, suffixOut)
-import Circuit.Poles qualified as MedState
 import Circuit.FinRel (FinObj (..))
 import Circuit.Fragment qualified as Frag
 import Circuit.Layer (bind, run)
-import Circuit.Trace (Trace (..))
+import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
 import Circuit.Net qualified as Net
+import Circuit.Par (Bot, distL, distR, mix)
+import Circuit.Poles (Bias (..), HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
+import Circuit.Poles qualified as MedState
 import Circuit.Poly (Dir, Eval (..), Mono, System, fromEvalSystem, lens, monoDir, monoIn, mooreSystem, runSystem, system)
+import Circuit.Poly.Channel (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
-import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
-import Circuit.Par (Bot, distL, distR, mix)
 import Circuit.Tensor (Action (..), Tensor (..), superpose)
 import Circuit.Tools.Test (approx, check)
+import Circuit.Trace (Trace (..))
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Kind (Type)
 import Data.List (foldl', isInfixOf, permutations, sort, uncons)
@@ -53,14 +53,14 @@ instance Category (ForwardChu r) where
   ForwardChu g . ForwardChu f = ForwardChu (g Pre.. f)
 
 instance Tensor (Chu.ChuOTensor r) (ForwardChu r) where
-  par (ForwardChu f) (ForwardChu g) = ForwardChu (\(x, y) -> (f x, g y))
+  tensor (ForwardChu f) (ForwardChu g) = ForwardChu (\(x, y) -> (f x, g y))
   unitl = ForwardChu (\((), a) -> a)
   unitl' = ForwardChu (\a -> ((), a))
   unitr = ForwardChu (\(a, ()) -> a)
   unitr' = ForwardChu (\a -> (a, ()))
 
 instance Action (Chu.ChuOTensor r) (ForwardChu r) where
-  swap = ForwardChu (\(a, b) -> (b, a))
+  braid = ForwardChu (\(a, b) -> (b, a))
 
 instance Circuit.Channel.Channel (Chu.ChuOTensor r) (ForwardChu r) where
   assoc = ForwardChu (\((x, y), z) -> (x, (y, z)))
@@ -1385,7 +1385,7 @@ main = do
                   (Chu.ChuOTensor Bool Chu.ChuTwo (Chu.ChuOTensor Bool Chu.ChuTwo Chu.ChuTwo))
               a = assoc
            in eqAssocMorphism (ochuToChuMorphism a) Chu.assocChu,
-        check "SepChu slide agrees with assoc . par swap id . assoc' on ChuTwo" $
+        check "SepChu slide agrees with assoc . tensor braid id . assoc' on ChuTwo" $
           let sl ::
                 Chu.OChu
                   Bool
@@ -1515,9 +1515,9 @@ main = do
                 && curry @(,) @(->) (uncurry @(,) @(->) g) 3 4 == g 3 4,
         check "Lolli (->) eval is application" $
           eval @(,) @(->) (3 :: Int, (+ 1)) == 4,
-        check "Lolli (->) eval is uncurry id . swap" $
+        check "Lolli (->) eval is uncurry id . braid" $
           let apply (x, f) = eval @(,) @(->) (x, f) :: Int
-              derived = uncurry @(,) @(->) id . swap
+              derived = uncurry @(,) @(->) id . braid
            in apply (3, (* 2)) == derived (3, (* 2)),
         check "Lolli OChu implication shape is (2, 4) not compact (4, 2)" $
           let lollPoss = chuTwoLollPoss

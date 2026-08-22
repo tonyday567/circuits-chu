@@ -172,12 +172,12 @@ module Circuit.Chu
   )
 where
 
+import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Category (Category (..))
 import Circuit.Channel (Channel (..))
-import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
-import Circuit.Poles (Poles (..), In (..), Out (..), close, companion, conjoint)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..), WhyNotMonoid (..))
 import Circuit.Par (Bot, Par (..))
+import Circuit.Poles (In (..), Out (..), Poles (..), close, companion, conjoint)
 import Circuit.Tensor (Action (..), Tensor (..), Unit)
 import Data.Kind (Type)
 import Data.Monoid (Any (..))
@@ -248,12 +248,12 @@ data PointedChuObj t r arr a b = PointedChuObj
 -- | Negation swaps the carriers via the symmetric braiding.
 --
 -- Involution is definitional for a symmetric braiding:
--- @swap . swap = id@.
+-- @braid . braid = id@.
 negateChu ::
   (Action t arr) =>
   ChuObj t r arr a b ->
   ChuObj t r arr b a
-negateChu (ChuObj e) = ChuObj (e . swap)
+negateChu (ChuObj e) = ChuObj (e . braid)
 {-# INLINE negateChu #-}
 
 -- ---------------------------------------------------------------------------
@@ -761,7 +761,7 @@ assocChuInv =
 
 -- | Slide @A ⊗ (B ⊗ C) → B ⊗ (A ⊗ C)@ over @Set@.
 --
--- This is the Channel 'slide', derived as @assoc . par swap id . assoc'@
+-- This is the Channel 'slide', derived as @assoc . tensor braid id . assoc'@
 -- and written directly so the instance does not have to manufacture
 -- intermediate object constraints.
 slideChu ::
@@ -1189,8 +1189,8 @@ instance (Eq r) => Channel (ChuOTensor r) (OChu r) where
 
 -- | Double-negation unit @A → A⊥⊥@.
 --
--- On carriers this is the identity: two swaps restore @A⁺@ and @A⁻@, and
--- the pairing is @e . swap . swap = e@.  It is an isomorphism precisely
+-- On carriers this is the identity: two braids restore @A⁺@ and @A⁻@, and
+-- the pairing is @e . braid . braid = e@.  It is an isomorphism precisely
 -- on separated-extensional objects.
 dnUnitChu :: forall r a. OChu r a (ChuONeg r (ChuONeg r a))
 dnUnitChu =
