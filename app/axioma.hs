@@ -10,7 +10,8 @@ import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc',
 import Circuit.Poly.Channel (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
-import Circuit.Dagger (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merge (..), MergeZero, Zero (..), transpose)
+import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), MergeZero, Zero (..))
+import Circuit.Dagger (Dagger (..), transpose)
 import Circuit.Poles (Bias (..), Poles (..), HasDual (..), box, close, compose0, copycat, poles, poles0, polesK, pair, prefixIn, race, splay, splay0, suffixOut)
 import Circuit.Poles qualified as MedState
 import Circuit.FinRel

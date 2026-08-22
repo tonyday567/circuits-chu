@@ -174,7 +174,7 @@ where
 
 import Circuit.Category (Category (..))
 import Circuit.Channel (Channel (..))
-import Circuit.Dagger (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
+import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Poles (Poles (..), In (..), Out (..), close, companion, conjoint)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), WhyNotIntro (..), WhyNotMonoid (..))
 import Circuit.Tensor (Action (..), Tensor (..), Unit)
