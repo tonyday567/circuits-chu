@@ -18,10 +18,11 @@ import Circuit.Net qualified as Net
 import Circuit.Par (Bot, distL, distR, mix)
 import Circuit.Poles (Bias (..), HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
 import Circuit.Poles qualified as MedState
-import Circuit.Poly (Dir, Eval (..), Mono, System, fromEvalSystem, lens, monoDir, monoIn, mooreSystem, runSystem, system)
+import Circuit.Poly (Dir, Eval (..), Mono, lens)
 import Circuit.Poly.Channel (Channel (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
+import Circuit.System (System, fromEvalSystem, monoDir, monoIn, mooreSystem, runSystem, system)
 import Circuit.Tensor (Action (..), Tensor (..), superpose)
 import Circuit.Tools.Test (approx, check)
 import Circuit.Trace (Trace (..))
