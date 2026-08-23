@@ -12,7 +12,6 @@ import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
 import Circuit.Dagger (Dagger (..), transpose)
 import Circuit.FinRel (FinObj (..))
-import Circuit.Fragment qualified as Frag
 import Circuit.Layer (bind, run)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
 import Circuit.Net qualified as Net
