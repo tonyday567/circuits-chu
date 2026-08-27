@@ -23,7 +23,7 @@ import Circuit.Poly.Channel (Channel (..), commitChannel, constChannel, emitChan
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
 import Circuit.System (System, fromEvalSystem, monoDir, monoIn, mooreSystem, runSystem, system)
-import Circuit.Tensor (Action (..), Tensor (..), superpose)
+import Circuit.Tensor (Action (..), Tensor (..), Unital (..), superpose)
 import Circuit.Tools.Test (approx, check)
 import Circuit.Trace (Trace (..))
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
@@ -52,12 +52,14 @@ instance Category (ForwardChu r) where
   id = ForwardChu Pre.id
   ForwardChu g . ForwardChu f = ForwardChu (g Pre.. f)
 
-instance Tensor (Chu.ChuOTensor r) (ForwardChu r) where
-  tensor (ForwardChu f) (ForwardChu g) = ForwardChu (\(x, y) -> (f x, g y))
+instance Unital (Chu.ChuOTensor r) (ForwardChu r) where
   unitl = ForwardChu (\((), a) -> a)
   unitl' = ForwardChu (\a -> ((), a))
   unitr = ForwardChu (\(a, ()) -> a)
   unitr' = ForwardChu (\a -> (a, ()))
+
+instance Tensor (Chu.ChuOTensor r) (ForwardChu r) where
+  tensor (ForwardChu f) (ForwardChu g) = ForwardChu (\(x, y) -> (f x, g y))
 
 instance Action (Chu.ChuOTensor r) (ForwardChu r) where
   braid = ForwardChu (\(a, b) -> (b, a))
