@@ -5,6 +5,7 @@
 
 module Main where
 
+import Circuit.Axioma.Test (approx, check)
 import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), MergeZero, Zero (..))
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
@@ -24,7 +25,6 @@ import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, sc
 import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
 import Circuit.System (System, fromEvalSystem, monoDir, monoIn, mooreSystem, runSystem, system)
 import Circuit.Tensor (Action (..), Tensor (..), Unital (..), superpose)
-import Circuit.Tools.Test (approx, check)
 import Circuit.Trace (Trace (..))
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Kind (Type)
