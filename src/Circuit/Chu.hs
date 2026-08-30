@@ -174,11 +174,11 @@ where
 
 import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Category (Category (..))
-import Circuit.Traced (Assoc (..), Slide (..))
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..), WhyNotMonoid (..))
 import Circuit.Par (Bot, Par (..))
 import Circuit.Poles (In (..), Out (..), Poles (..), close, companion, conjoint)
 import Circuit.Tensor (Action (..), Tensor (..), Unit)
+import Circuit.Traced (Assoc (..), Slide (..))
 import Data.Kind (Type)
 import Data.Monoid (Any (..))
 import Data.Proxy (Proxy (..))
