@@ -8,7 +8,6 @@ module Main where
 import Circuit.Axioma.Test (approx, check)
 import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), MergeZero, Zero (..))
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
-import Circuit.Channel (Channel (..), Strength (..), Traced (..), assoc, assoc', slide, strength, trace)
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
 import Circuit.Dagger (Dagger (..), transpose)
@@ -17,14 +16,16 @@ import Circuit.Layer (bind, run)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
 import Circuit.Net qualified as Net
 import Circuit.Par (Bot, distL, distR, mix)
-import Circuit.Poles (Bias (..), HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
+import Circuit.Poles (HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
 import Circuit.Poles qualified as MedState
 import Circuit.Poly (Dir, Eval (..), Mono, lens)
-import Circuit.Poly.Channel (PChan (..), commitChannel, constChannel, emitChannel, idChannel, mapChannel)
+import Circuit.Moore (Moore, fromEvalMoore, markMoore, moore, mooreMachine, mooreMorphism, monoDir, monoIn)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
-import Circuit.Process (Process (..), delay, encode, fold, markSystem, register, scan, systemToProcess)
-import Circuit.System (System, fromEvalSystem, monoDir, monoIn, mooreSystem, runSystem, system)
+import Circuit.Process (Process (..), delay, fold, register, scan)
+import Circuit.SMC (SMC)
+import Circuit.Syntax (Syntax (Lift))
 import Circuit.Tensor (Action (..), Tensor (..), Unital (..), superpose)
+import Circuit.Traced (Assoc (..), Slide (..), Strength (..), Yank (..))
 import Circuit.Trace (Trace (..))
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Kind (Type)
@@ -64,16 +65,18 @@ instance Tensor (Chu.ChuOTensor r) (ForwardChu r) where
 instance Action (Chu.ChuOTensor r) (ForwardChu r) where
   braid = ForwardChu (\(a, b) -> (b, a))
 
-instance Circuit.Channel.Channel (Chu.ChuOTensor r) (ForwardChu r) where
+instance Assoc (Chu.ChuOTensor r) (ForwardChu r) where
   assoc = ForwardChu (\((x, y), z) -> (x, (y, z)))
   assoc' = ForwardChu (\(x, (y, z)) -> ((x, y), z))
+
+instance Slide (Chu.ChuOTensor r) (ForwardChu r) where
   slide = ForwardChu (\(a, (b, c)) -> (b, (a, c)))
 
 instance Strength (Chu.ChuOTensor r) (ForwardChu r) where
   strength (ForwardChu f) = ForwardChu (\(a, b) -> (a, f b))
 
-instance Traced (Chu.ChuOTensor r) (ForwardChu r) where
-  trace (ForwardChu f) = ForwardChu (\x -> let (y, z) = f (y, x) in z)
+instance Yank (Chu.ChuOTensor r) (ForwardChu r) where
+  yank (ForwardChu f) = ForwardChu (\x -> let (y, z) = f (y, x) in z)
 
 -- | Extract the forward map from an 'OChu' morphism.
 --
@@ -1513,13 +1516,13 @@ main = do
         check "Lolli (->) curry/uncurry are inverse" $
           let f (x, y) = x + y :: Int
               g x y = x * y :: Int
-           in uncurry @(,) @(->) (curry @(,) @(->) f) (3, 4) == f (3, 4)
-                && curry @(,) @(->) (uncurry @(,) @(->) g) 3 4 == g 3 4,
+           in uncurryL @(,) @(->) (curryL @(,) @(->) f) (3, 4) == f (3, 4)
+                && curryL @(,) @(->) (uncurryL @(,) @(->) g) 3 4 == g 3 4,
         check "Lolli (->) eval is application" $
-          eval @(,) @(->) (3 :: Int, (+ 1)) == 4,
+          evalLinear @(,) @(->) (3 :: Int, (+ 1)) == 4,
         check "Lolli (->) eval is uncurry id . braid" $
-          let apply (x, f) = eval @(,) @(->) (x, f) :: Int
-              derived = uncurry @(,) @(->) id . braid
+          let apply (x, f) = evalLinear @(,) @(->) (x, f) :: Int
+              derived = uncurryL @(,) @(->) id . braid
            in apply (3, (* 2)) == derived (3, (* 2)),
         check "Lolli OChu implication shape is (2, 4) not compact (4, 2)" $
           let lollPoss = chuTwoLollPoss
@@ -1751,13 +1754,13 @@ main = do
            in True,
         -- Net wiring over Chu: the tensor-generic Net accepts ChuOTensor as
         -- its wiring product.  Without constrained class instances for OChu,
-        -- the bimonoid rows are supplied as explicit 'Net.lift' morphisms on
+        -- the bimonoid rows are supplied as explicit 'Net.sift' morphisms on
         -- the unit object.
         check "Net ChuOTensor ChuOUnit bimonoid rows typecheck" $
           let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              copyN = Net.lift Chu.unitlOChu'
+              copyN = Net.widen (Lift Chu.unitlOChu')
               plusN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)) (Chu.ChuOUnit Bool)
-              plusN = Net.lift Chu.unitlOChu
+              plusN = Net.widen (Lift Chu.unitlOChu)
               _composed = plusN . copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
            in True,
         -- First falsifier of traced-ochu: a Chu net can be interpreted via
@@ -1766,9 +1769,9 @@ main = do
         -- reduce 'ChuOTensor' carriers in polymorphic instance methods.
         check "Net.bind interprets Chu net into ForwardChu" $
           let copyN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
-              copyN = Net.lift Chu.unitlOChu'
+              copyN = Net.widen (Lift Chu.unitlOChu')
               composedN :: Net.Net (Chu.ChuOTensor Bool) (Chu.OChu Bool) (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)
-              composedN = Net.lift Chu.unitlOChu . Net.lift Chu.unitlOChu'
+              composedN = Net.widen (Lift Chu.unitlOChu) . Net.widen (Lift Chu.unitlOChu')
               copyViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOTensor Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool))
               copyViaBind = bind forwardChu copyN
               composedViaBind :: ForwardChu Bool (Chu.ChuOUnit Bool) (Chu.ChuOUnit Bool)

@@ -174,7 +174,7 @@ where
 
 import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Category (Category (..))
-import Circuit.Channel (Channel (..))
+import Circuit.Traced (Assoc (..), Slide (..))
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..), WhyNotMonoid (..))
 import Circuit.Par (Bot, Par (..))
 import Circuit.Poles (In (..), Out (..), Poles (..), close, companion, conjoint)
@@ -783,6 +783,41 @@ slideChu =
     )
 {-# INLINE slideChu #-}
 
+-- | Slide specialised to the object-level Chu tensor.
+slideChu' ::
+  forall r (a :: Type) (b :: Type) (c :: Type).
+  (Eq r) =>
+  ChuMorphism
+    (,)
+    r
+    (->)
+    (ChuPosType (ChuOTensor r a (ChuOTensor r b c)))
+    (ChuNegType (ChuOTensor r a (ChuOTensor r b c)))
+    (ChuPosType (ChuOTensor r b (ChuOTensor r a c)))
+    (ChuNegType (ChuOTensor r b (ChuOTensor r a c)))
+slideChu' =
+  let slidePos ::
+        (ChuPosType a, (ChuPosType b, ChuPosType c)) ->
+        (ChuPosType b, (ChuPosType a, ChuPosType c))
+      slidePos (x, (y, z)) = (y, (x, z))
+      slideNeg ::
+        ChuTensorNeg
+          (ChuPosType b)
+          (ChuNegType b)
+          (ChuPosType a, ChuPosType c)
+          (ChuTensorNeg (ChuPosType a) (ChuNegType a) (ChuPosType c) (ChuNegType c)) ->
+        ChuTensorNeg
+          (ChuPosType a)
+          (ChuNegType a)
+          (ChuPosType b, ChuPosType c)
+          (ChuTensorNeg (ChuPosType b) (ChuNegType b) (ChuPosType c) (ChuNegType c))
+      slideNeg (ChuTensorNeg h' k') =
+        ChuTensorNeg
+          (\x -> ChuTensorNeg (\y -> ctnForward (h' y) x) (\z -> k' (x, z)))
+          (\(y, z) -> ctnBackward (h' y) z)
+   in ChuMorphism slidePos slideNeg
+{-# INLINE slideChu' #-}
+
 -- | Enumerate all 'ChuTensorNeg' values for finite carriers.
 chuTensorNegs ::
   forall r a b.
@@ -1008,7 +1043,7 @@ instance (ChuSeparated r a) => ChuExtensional r (ChuONeg r a)
 data ChuTwo = ChuTwo
 
 instance ChuObject Bool ChuTwo where
-  chuObject = ChuObj (uncurry (==))
+  chuObject = ChuObj (Pre.uncurry (==))
   chuPosAll = [False, True]
   chuNegAll = [False, True]
 
@@ -1025,7 +1060,7 @@ instance ChuExtensional Bool ChuTwo
 data ChuThree = ChuThree
 
 instance ChuObject Bool ChuThree where
-  chuObject = ChuObj (uncurry (<=))
+  chuObject = ChuObj (Pre.uncurry (<=))
   chuPosAll = [Nothing, Just False, Just True]
   chuNegAll = [Nothing, Just False, Just True]
 
@@ -1182,10 +1217,13 @@ swapOChu = OChu (Chu (swapChu @r @a @b))
 -- 'assoc' / 'assoc'' / 'slide' are the Set-level maps 'assocChu',
 -- 'assocChuInv', and 'slideChu'.  The pentagon is checked on 'ChuTwo'
 -- by finite enumeration in @circuits-axioma@.
-instance (Eq r) => Channel (ChuOTensor r) (OChu r) where
+instance (Eq r) => Assoc (ChuOTensor r) (OChu r) where
   assoc = OChu (Chu assocChu)
   assoc' = OChu (Chu assocChuInv)
-  slide = OChu (Chu slideChu)
+
+instance (Eq r) => Slide (ChuOTensor r) (OChu r) where
+  slide :: forall (a :: Type) (b :: Type) (c :: Type). OChu r (ChuOTensor r a (ChuOTensor r b c)) (ChuOTensor r b (ChuOTensor r a c))
+  slide = OChu (Chu (slideChu' @r @a @b @c))
 
 -- | Double-negation unit @A → A⊥⊥@.
 --
@@ -1526,7 +1564,7 @@ mergeBangChu ::
     (a -> r)
 mergeBangChu =
   ChuMorphism
-    (uncurry (<>))
+    (Pre.uncurry (<>))
     (\k -> ChuTensorNeg (\x y -> k (x <> y)) (\y x -> k (x <> y)))
 {-# INLINE mergeBangChu #-}
 
