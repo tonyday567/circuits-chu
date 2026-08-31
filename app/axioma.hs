@@ -14,7 +14,7 @@ import Circuit.Dagger (Dagger (..), transpose)
 import Circuit.FinRel (FinObj (..))
 import Circuit.Layer (bind, run)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
-import Circuit.Moore (Moore, fromEvalMoore, monoDir, monoIn, moore, mooreMachine, mooreMorphism)
+import Circuit.Moore (Moore, fromEvalMoore, monoDir, monoIn, moore, mooreMorphism)
 import Circuit.Net qualified as Net
 import Circuit.Par (Bot, distL, distR, mix)
 import Circuit.Poles (HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
