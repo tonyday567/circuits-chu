@@ -1307,7 +1307,7 @@ main = do
            in domainMat /= forwardOnlyMat,
         -- Coherence: Trace/Dagger transpose and Chu negation on embedded Poles
         check "copycat witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Poles () () (->) () ()
+          let e :: Poles () () (->) (->) () ()
               e = copycat
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
@@ -1315,7 +1315,7 @@ main = do
            in Chu.chuPair chu (conjoint e, companion e) () == Chu.chuPair chuNeg (companion e, conjoint e) ()
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Poles () () (->) Int Int
+          let e :: Poles () () (->) (->) Int Int
               e = poles0 (const ()) (const 42)
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu

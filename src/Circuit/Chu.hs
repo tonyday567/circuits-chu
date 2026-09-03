@@ -1940,14 +1940,14 @@ zeroTOChu =
 
 -- | Embed a symmetric unit-channel pole into a pointed Chu object.
 --
--- A self-dual channel @Poles () () arr a a@ has write leg @arr a ()@ and read
+-- A self-dual channel @Poles () () arr arr a a@ has write leg @arr a ()@ and read
 -- leg @arr () a@.  Composition of the two legs is the pairing
 -- @(arr a (), arr () a) → arr a a@, so the embedding is direct.  The point pair
 -- @(conjoint e, companion e)@ is retained as the chosen point of the pointed
 -- object.
 polesAsChu ::
   (Category arr) =>
-  Poles () () arr a a ->
+  Poles () () arr arr a a ->
   PointedChuObj (,) (arr a a) (->) (arr a ()) (arr () a)
 polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (conjoint e) (companion e)
 {-# INLINE polesAsChu #-}
@@ -1959,7 +1959,7 @@ polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (conjoint e) (
 -- 'ChuMorphism'.  The Chu law is discharged by the type, not just tested.
 lawfulDimap ::
   ChuMorphism (,) (arr a a) (->) (arr a ()) (arr () a) (arr a ()) (arr () a) ->
-  Poles () () arr a a ->
-  Poles () () arr a a
+  Poles () () arr arr a a ->
+  Poles () () arr arr a a
 lawfulDimap (ChuMorphism f g) e = Poles (f (conjoint e)) (g (companion e))
 {-# INLINE lawfulDimap #-}
