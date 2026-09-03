@@ -15,7 +15,6 @@ import Circuit.Equip (Poles (..), copycat, poles0)
 import Circuit.FinRel (FinObj (..))
 import Circuit.Layer (bind, run)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
-import Circuit.Moore (Moore, fromEvalMoore, monoDir, monoIn, moore, mooreMorphism)
 import Circuit.Net qualified as Net
 import Circuit.Par (Bot, distL, distR, mix)
 import Circuit.Poly (Dir, Eval (..), Mono, lens)
