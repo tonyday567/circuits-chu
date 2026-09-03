@@ -11,8 +11,7 @@ import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
 import Circuit.Dagger (Dagger (..), transpose)
-import Circuit.Equip (HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
-import Circuit.Equip qualified as MedState
+import Circuit.Equip (Poles (..), copycat, poles0)
 import Circuit.FinRel (FinObj (..))
 import Circuit.Layer (bind, run)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
@@ -1309,7 +1308,7 @@ main = do
            in domainMat /= forwardOnlyMat,
         -- Coherence: Trace/Dagger transpose and Chu negation on embedded Poles
         check "copycat witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Poles (->) () ()
+          let e :: Poles () () (->) () ()
               e = copycat
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
@@ -1317,7 +1316,7 @@ main = do
            in Chu.chuPair chu (conjoint e, companion e) () == Chu.chuPair chuNeg (companion e, conjoint e) ()
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Poles (->) Int Int
+          let e :: Poles () () (->) Int Int
               e = poles0 (const ()) (const 42)
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu

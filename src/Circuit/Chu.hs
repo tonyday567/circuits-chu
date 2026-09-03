@@ -174,7 +174,7 @@ where
 
 import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Category (Category (..))
-import Circuit.Equip (In (..), Out (..), Poles (..), close, companion, conjoint)
+import Circuit.Equip (Poles (..), close, companion, conjoint)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..), WhyNotMonoid (..))
 import Circuit.Par (Bot, Par (..))
 import Circuit.Tensor (Action (..), Tensor (..), Unit)
@@ -1938,27 +1938,28 @@ zeroTOChu =
 -- Embedding from 'Circuit.Equip'
 -- ---------------------------------------------------------------------------
 
--- | Embed a symmetric pole into a pointed Chu object.
+-- | Embed a symmetric unit-channel pole into a pointed Chu object.
 --
--- A self-dual channel @Poles arr a a@ has write pole @In arr a@ and read pole
--- @Out arr a@.  'Circuit.Equip.close' is already the pairing
--- @In ⊗ Out → arr a a@, so the embedding is direct.  The point pair
+-- A self-dual channel @Poles () () arr a a@ has write leg @arr a ()@ and read
+-- leg @arr () a@.  Composition of the two legs is the pairing
+-- @(arr a (), arr () a) → arr a a@, so the embedding is direct.  The point pair
 -- @(conjoint e, companion e)@ is retained as the chosen point of the pointed
 -- object.
 polesAsChu ::
-  Poles arr a a ->
-  PointedChuObj (,) (arr a a) (->) (In arr a) (Out arr a)
-polesAsChu e = PointedChuObj (ChuObj (Pre.uncurry close)) (conjoint e) (companion e)
+  (Category arr) =>
+  Poles () () arr a a ->
+  PointedChuObj (,) (arr a a) (->) (arr a ()) (arr () a)
+polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (conjoint e) (companion e)
 {-# INLINE polesAsChu #-}
 
--- | Apply a Chu endomorphism to a symmetric pole.
+-- | Apply a Chu endomorphism to a symmetric unit-channel pole.
 --
 -- This is the lawful counterpart to the free 'Circuit.Equip.dimap': the
 -- forward and backward maps are an adjoint pair by construction of
 -- 'ChuMorphism'.  The Chu law is discharged by the type, not just tested.
 lawfulDimap ::
-  ChuMorphism (,) (arr a a) (->) (In arr a) (Out arr a) (In arr a) (Out arr a) ->
-  Poles arr a a ->
-  Poles arr a a
+  ChuMorphism (,) (arr a a) (->) (arr a ()) (arr () a) (arr a ()) (arr () a) ->
+  Poles () () arr a a ->
+  Poles () () arr a a
 lawfulDimap (ChuMorphism f g) e = Poles (f (conjoint e)) (g (companion e))
 {-# INLINE lawfulDimap #-}
