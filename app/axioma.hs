@@ -11,14 +11,14 @@ import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
 import Circuit.Dagger (Dagger (..), transpose)
+import Circuit.Equip (HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
+import Circuit.Equip qualified as MedState
 import Circuit.FinRel (FinObj (..))
 import Circuit.Layer (bind, run)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
 import Circuit.Moore (Moore, fromEvalMoore, monoDir, monoIn, moore, mooreMorphism)
 import Circuit.Net qualified as Net
 import Circuit.Par (Bot, distL, distR, mix)
-import Circuit.Poles (HasDual (..), Poles (..), box, close, compose0, copycat, pair, poles, poles0, polesK, prefixIn, race, splay, splay0, suffixOut)
-import Circuit.Poles qualified as MedState
 import Circuit.Poly (Dir, Eval (..), Mono, lens)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, fold, register, scan)

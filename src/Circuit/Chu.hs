@@ -90,7 +90,7 @@ module Circuit.Chu
     assocChuInv,
     slideChu,
 
-    -- * Embedding from 'Circuit.Poles'
+    -- * Embedding from 'Circuit.Equip'
     polesAsChu,
     lawfulDimap,
 
@@ -174,9 +174,9 @@ where
 
 import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Category (Category (..))
+import Circuit.Equip (In (..), Out (..), Poles (..), close, companion, conjoint)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..), WhyNotMonoid (..))
 import Circuit.Par (Bot, Par (..))
-import Circuit.Poles (In (..), Out (..), Poles (..), close, companion, conjoint)
 import Circuit.Tensor (Action (..), Tensor (..), Unit)
 import Circuit.Traced (Assoc (..), Slide (..))
 import Data.Kind (Type)
@@ -1935,13 +1935,13 @@ zeroTOChu =
 {-# INLINE zeroTOChu #-}
 
 -- ---------------------------------------------------------------------------
--- Embedding from 'Circuit.Poles'
+-- Embedding from 'Circuit.Equip'
 -- ---------------------------------------------------------------------------
 
 -- | Embed a symmetric pole into a pointed Chu object.
 --
 -- A self-dual channel @Poles arr a a@ has write pole @In arr a@ and read pole
--- @Out arr a@.  'Circuit.Poles.close' is already the pairing
+-- @Out arr a@.  'Circuit.Equip.close' is already the pairing
 -- @In ⊗ Out → arr a a@, so the embedding is direct.  The point pair
 -- @(conjoint e, companion e)@ is retained as the chosen point of the pointed
 -- object.
@@ -1953,7 +1953,7 @@ polesAsChu e = PointedChuObj (ChuObj (Pre.uncurry close)) (conjoint e) (companio
 
 -- | Apply a Chu endomorphism to a symmetric pole.
 --
--- This is the lawful counterpart to the free 'Circuit.Poles.dimap': the
+-- This is the lawful counterpart to the free 'Circuit.Equip.dimap': the
 -- forward and backward maps are an adjoint pair by construction of
 -- 'ChuMorphism'.  The Chu law is discharged by the type, not just tested.
 lawfulDimap ::
