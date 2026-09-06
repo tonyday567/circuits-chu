@@ -10,17 +10,17 @@ import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), Merge
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
-import Circuit.Dagger (Dagger (..), transpose)
+import Circuit.Bimonoid (Dagger (..), transpose)
 import Circuit.Equip (Poles (..), copycat, poles0)
-import Circuit.FinRel (FinObj (..))
-import Circuit.Layer (bind, run)
+import Circuit.Rel (FinObj (..))
+import Circuit.Syntax (bind, run)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
 import Circuit.Net qualified as Net
-import Circuit.Par (Bot, distL, distR, mix)
+import Circuit.Linear (Bot, distL, distR, mix)
 import Circuit.Poly (Dir, Eval (..), Mono, lens)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Process (Process (..), delay, fold, register, scan)
-import Circuit.SMC (SMC)
+import Circuit.Net (SMC)
 import Circuit.Syntax (Syntax (Lift))
 import Circuit.Tensor (Action (..), Tensor (..), Unital (..), superpose)
 import Circuit.Trace (Trace)
@@ -1307,7 +1307,7 @@ main = do
            in domainMat /= forwardOnlyMat,
         -- Coherence: Trace/Dagger transpose and Chu negation on embedded Poles
         check "copycat witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Poles () () (->) (->) () ()
+          let e :: Poles () (->) () ()
               e = copycat
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
@@ -1315,7 +1315,7 @@ main = do
            in Chu.chuPair chu (conjoint e, companion e) () == Chu.chuPair chuNeg (companion e, conjoint e) ()
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
-          let e :: Poles () () (->) (->) Int Int
+          let e :: Poles () (->) Int Int
               e = poles0 (const ()) (const 42)
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
