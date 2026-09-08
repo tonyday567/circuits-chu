@@ -6,22 +6,18 @@
 module Main where
 
 import Circuit.Axioma.Test (approx, check)
-import Circuit.Bimonoid (Copy (..), CopyDiscard, Discard (..), Merge (..), MergeZero, Zero (..))
+import Circuit.Bimonoid (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merge (..), MergeZero, Zero (..), transpose)
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
-import Circuit.Bimonoid (Dagger (..), transpose)
 import Circuit.Equip (Poles (..), copycat, poles0)
-import Circuit.Rel (FinObj (..))
-import Circuit.Syntax (bind, run)
-import Circuit.Linear (BangCopy (..), BangWeaken (..), Exponential (..), Lolli (..), WhyNotIntro (..))
+import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), WhyNotIntro (..), distL, distR, mix)
+import Circuit.Net (SMC)
 import Circuit.Net qualified as Net
-import Circuit.Linear (Bot, distL, distR, mix)
 import Circuit.Poly (Dir, Eval (..), Mono, lens)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
-import Circuit.Process (Process (..), delay, fold, register, scan)
-import Circuit.Net (SMC)
-import Circuit.Syntax (Syntax (Lift))
+import Circuit.Rel (FinObj (..))
+import Circuit.Syntax (Syntax (Lift), bind, run)
 import Circuit.Tensor (Action (..), Tensor (..), Unital (..), superpose)
 import Circuit.Trace (Trace)
 import Circuit.Traced (Assoc (..), Slide (..), Strength (..), Yank (..))
