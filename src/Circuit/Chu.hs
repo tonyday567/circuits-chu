@@ -90,7 +90,7 @@ module Circuit.Chu
     assocChuInv,
     slideChu,
 
-    -- * Embedding from 'Circuit.Equip'
+    -- * Embedding from 'Circuit.GMachine'
     polesAsChu,
     lawfulDimap,
 
@@ -174,7 +174,7 @@ where
 
 import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Category (Category (..))
-import Circuit.Equip (Poles (..), close, companion, conjoint)
+import Circuit.GMachine (Poles (..), close)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), WhyNotIntro (..), WhyNotMonoid (..))
 import Circuit.Tensor (Action (..), Tensor (..), Unit)
 import Circuit.Traced (Assoc (..), Slide (..))
@@ -1934,7 +1934,7 @@ zeroTOChu =
 {-# INLINE zeroTOChu #-}
 
 -- ---------------------------------------------------------------------------
--- Embedding from 'Circuit.Equip'
+-- Embedding from 'Circuit.GMachine'
 -- ---------------------------------------------------------------------------
 
 -- | Embed a symmetric unit-channel pole into a pointed Chu object.
@@ -1942,23 +1942,23 @@ zeroTOChu =
 -- A self-dual channel @Poles () arr a a@ has write leg @arr a ()@ and read
 -- leg @arr () a@.  Composition of the two legs is the pairing
 -- @(arr a (), arr () a) → arr a a@, so the embedding is direct.  The point pair
--- @(conjoint e, companion e)@ is retained as the chosen point of the pointed
+-- @(commit e, observe e)@ is retained as the chosen point of the pointed
 -- object.
 polesAsChu ::
   (Category arr) =>
   Poles () arr a a ->
   PointedChuObj (,) (arr a a) (->) (arr a ()) (arr () a)
-polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (conjoint e) (companion e)
+polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (commit e) (observe e)
 {-# INLINE polesAsChu #-}
 
 -- | Apply a Chu endomorphism to a symmetric unit-channel pole.
 --
--- This is the lawful counterpart to the free 'Circuit.Equip.dimap': the
+-- This is the lawful counterpart to the free 'Circuit.GMachine.iomap': the
 -- forward and backward maps are an adjoint pair by construction of
 -- 'ChuMorphism'.  The Chu law is discharged by the type, not just tested.
 lawfulDimap ::
   ChuMorphism (,) (arr a a) (->) (arr a ()) (arr () a) (arr a ()) (arr () a) ->
   Poles () arr a a ->
   Poles () arr a a
-lawfulDimap (ChuMorphism f g) e = Poles (f (conjoint e)) (g (companion e))
+lawfulDimap (ChuMorphism f g) e = Poles (f (commit e)) (g (observe e))
 {-# INLINE lawfulDimap #-}

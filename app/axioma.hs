@@ -10,7 +10,7 @@ import Circuit.Bimonoid (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merg
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
-import Circuit.Equip (Poles (..), copycat, poles0)
+import Circuit.GMachine (Poles (..), copycat, poles0)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), WhyNotIntro (..), distL, distR, mix)
 import Circuit.Net (SMC)
 import Circuit.Net qualified as Net
@@ -1308,7 +1308,7 @@ main = do
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger id id :: Dagger (->) () ()
-           in Chu.chuPair chu (conjoint e, companion e) () == Chu.chuPair chuNeg (companion e, conjoint e) ()
+           in Chu.chuPair chu (commit e, observe e) () == Chu.chuPair chuNeg (observe e, commit e) ()
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
           let e :: Poles () (->) Int Int
@@ -1316,7 +1316,7 @@ main = do
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger (const 42) (const 42) :: Dagger (->) Int Int
-           in Chu.chuPair chu (conjoint e, companion e) 0 == Chu.chuPair chuNeg (companion e, conjoint e) 0
+           in Chu.chuPair chu (commit e, observe e) 0 == Chu.chuPair chuNeg (observe e, commit e) 0
                 && (let Dagger f g = transpose d in f 0 == 42 && g 0 == 42),
         -- Object-indexed Chu category (OChu) constrained combinators
         check "OChu left unitor round-trips on ChuTwo" $
