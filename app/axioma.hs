@@ -18,7 +18,7 @@ import Circuit.Poly (Dir, Eval (..), Mono, lens)
 import Circuit.Prob (Prob (..), embed, fromWeighted, mass, orP, parFG, parGF, score, traceE, traceEN)
 import Circuit.Rel (FinObj (..))
 import Circuit.Syntax (Syntax (Lift), bind, run)
-import Circuit.Tensor (Action (..), Tensor (..), Unital (..), superpose)
+import Circuit.Tensor (Action (..), SemiTensor (..), Tensor, Unital (..), superpose)
 import Circuit.Trace (Trace)
 import Circuit.Traced (Assoc (..), Slide (..), Strength (..), Yank (..))
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
@@ -53,8 +53,10 @@ instance Unital (Chu.ChuOTensor r) (ForwardChu r) where
   unitr = ForwardChu (\(a, ()) -> a)
   unitr' = ForwardChu (\a -> (a, ()))
 
-instance Tensor (Chu.ChuOTensor r) (ForwardChu r) where
+instance SemiTensor (Chu.ChuOTensor r) (ForwardChu r) where
   tensor (ForwardChu f) (ForwardChu g) = ForwardChu (\(x, y) -> (f x, g y))
+
+instance Tensor (Chu.ChuOTensor r) (ForwardChu r)
 
 instance Action (Chu.ChuOTensor r) (ForwardChu r) where
   braid = ForwardChu (\(a, b) -> (b, a))
