@@ -31,7 +31,7 @@ import Data.These (These (..), these)
 import Data.Tuple qualified as Tuple
 import Data.Void (Void, absurd)
 import GHC.TypeNats (KnownNat, natVal)
-import Prelude hiding (curry, id, uncurry, (.))
+import Prelude hiding (curry, id, read, uncurry, (.))
 import Prelude qualified as Pre
 
 -- | Forward-only Chu interpretation: objects are Chu object tags, morphisms
@@ -1308,7 +1308,7 @@ main = do
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger id id :: Dagger (->) () ()
-           in Chu.chuPair chu (commit e, observe e) () == Chu.chuPair chuNeg (observe e, commit e) ()
+           in Chu.chuPair chu (write e, read e) () == Chu.chuPair chuNeg (read e, write e) ()
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
           let e :: Poles () (->) Int Int
@@ -1316,7 +1316,7 @@ main = do
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger (const 42) (const 42) :: Dagger (->) Int Int
-           in Chu.chuPair chu (commit e, observe e) 0 == Chu.chuPair chuNeg (observe e, commit e) 0
+           in Chu.chuPair chu (write e, read e) 0 == Chu.chuPair chuNeg (read e, write e) 0
                 && (let Dagger f g = transpose d in f 0 == 42 && g 0 == 42),
         -- Object-indexed Chu category (OChu) constrained combinators
         check "OChu left unitor round-trips on ChuTwo" $

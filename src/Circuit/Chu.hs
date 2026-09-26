@@ -184,7 +184,7 @@ import Data.Proxy (Proxy (..))
 import Data.Traversable (sequenceA)
 import Data.Type.Bool (If)
 import Data.Void (Void, absurd)
-import Prelude hiding (curry, id, uncurry, (.))
+import Prelude hiding (curry, id, read, uncurry, (.))
 import Prelude qualified as Pre
 
 -- ---------------------------------------------------------------------------
@@ -1942,13 +1942,13 @@ zeroTOChu =
 -- A self-dual channel @Poles () arr a a@ has write leg @arr a ()@ and read
 -- leg @arr () a@.  Composition of the two legs is the pairing
 -- @(arr a (), arr () a) → arr a a@, so the embedding is direct.  The point pair
--- @(commit e, observe e)@ is retained as the chosen point of the pointed
+-- @(write e, read e)@ is retained as the chosen point of the pointed
 -- object.
 polesAsChu ::
   (Category arr) =>
   Poles () arr a a ->
   PointedChuObj (,) (arr a a) (->) (arr a ()) (arr () a)
-polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (commit e) (observe e)
+polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (write e) (read e)
 {-# INLINE polesAsChu #-}
 
 -- | Apply a Chu endomorphism to a symmetric unit-channel pole.
@@ -1960,5 +1960,5 @@ lawfulDimap ::
   ChuMorphism (,) (arr a a) (->) (arr a ()) (arr () a) (arr a ()) (arr () a) ->
   Poles () arr a a ->
   Poles () arr a a
-lawfulDimap (ChuMorphism f g) e = Poles (f (commit e)) (g (observe e))
+lawfulDimap (ChuMorphism f g) e = Poles (f (write e)) (g (read e))
 {-# INLINE lawfulDimap #-}
