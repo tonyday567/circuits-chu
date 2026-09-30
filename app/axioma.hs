@@ -10,7 +10,7 @@ import Circuit.Bimonoid (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merg
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
-import Circuit.GMachine (Poles (..), copycat, poles0)
+import Circuit.GMachine (Poles (..), unclose)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), WhyNotIntro (..), distL, distR, mix)
 import Circuit.Net (SMC)
 import Circuit.Net qualified as Net
@@ -1306,7 +1306,7 @@ main = do
         -- Coherence: Trace/Dagger transpose and Chu negation on embedded Poles
         check "copycat witness is fixed by Chu negation and Dagger transpose" $
           let e :: Poles () (->) () ()
-              e = copycat
+              e = unclose id
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger id id :: Dagger (->) () ()
@@ -1314,7 +1314,7 @@ main = do
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
           let e :: Poles () (->) Int Int
-              e = poles0 (const ()) (const 42)
+              e = Poles (const ()) (const 42)
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger (const 42) (const 42) :: Dagger (->) Int Int
