@@ -90,7 +90,7 @@ module Circuit.Chu
     assocChuInv,
     slideChu,
 
-    -- * Embedding from 'Circuit.GMachine'
+    -- * Embedding from 'Circuit.Machine'
     polesAsChu,
     lawfulDimap,
 
@@ -174,8 +174,8 @@ where
 
 import Circuit.Bimonoid (CopyT (..), DiscardT (..), MergeT (..), ZeroT (..))
 import Circuit.Category (Category (..))
-import Circuit.GMachine (Poles (..), close)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), Par (..), WhyNotIntro (..), WhyNotMonoid (..))
+import Circuit.Machine (Poles (..), close)
 import Circuit.Tensor (Action (..), Tensor, Unit)
 import Circuit.Traced (Assoc (..), Slide (..))
 import Data.Kind (Type)
@@ -184,7 +184,7 @@ import Data.Proxy (Proxy (..))
 import Data.Traversable (sequenceA)
 import Data.Type.Bool (If)
 import Data.Void (Void, absurd)
-import Prelude hiding (curry, id, read, uncurry, (.))
+import Prelude hiding (curry, id, init, read, uncurry, (.))
 import Prelude qualified as Pre
 
 -- ---------------------------------------------------------------------------
@@ -1934,31 +1934,31 @@ zeroTOChu =
 {-# INLINE zeroTOChu #-}
 
 -- ---------------------------------------------------------------------------
--- Embedding from 'Circuit.GMachine'
+-- Embedding from 'Circuit.Machine'
 -- ---------------------------------------------------------------------------
 
 -- | Embed a symmetric unit-channel pole into a pointed Chu object.
 --
--- A self-dual channel @Poles () arr a a@ has write leg @arr a ()@ and read
--- leg @arr () a@.  Composition of the two legs is the pairing
--- @(arr a (), arr () a) → arr a a@, so the embedding is direct.  The point pair
--- @(write e, read e)@ is retained as the chosen point of the pointed
--- object.
+-- A self-dual channel @Poles () arr a a@ has init and commit legs
+-- @arr a ()@ and emit leg @arr () a@.  Composition of the init leg with the
+-- emit leg is the pairing @(arr a (), arr () a) → arr a a@, so the embedding
+-- is direct.  The point pair @(init e, emit e)@ is retained as the chosen
+-- point of the pointed object.
 polesAsChu ::
   (Category arr) =>
   Poles () arr a a ->
   PointedChuObj (,) (arr a a) (->) (arr a ()) (arr () a)
-polesAsChu e = PointedChuObj (ChuObj (close . Pre.uncurry Poles)) (write e) (read e)
+polesAsChu e = PointedChuObj (ChuObj (\(w, r) -> close (Poles w w r))) (init e) (emit e)
 {-# INLINE polesAsChu #-}
 
 -- | Apply a Chu endomorphism to a symmetric unit-channel pole.
 --
--- This is the lawful counterpart to the free 'Circuit.GMachine.iomap': the
+-- This is the lawful counterpart to the free 'Circuit.Machine.iomap': the
 -- forward and backward maps are an adjoint pair by construction of
 -- 'ChuMorphism'.  The Chu law is discharged by the type, not just tested.
 lawfulDimap ::
   ChuMorphism (,) (arr a a) (->) (arr a ()) (arr () a) (arr a ()) (arr () a) ->
   Poles () arr a a ->
   Poles () arr a a
-lawfulDimap (ChuMorphism f g) e = Poles (f (write e)) (g (read e))
+lawfulDimap (ChuMorphism f g) e = Poles (f (init e)) (f (commit e)) (g (emit e))
 {-# INLINE lawfulDimap #-}

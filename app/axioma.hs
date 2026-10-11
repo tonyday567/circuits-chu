@@ -10,8 +10,8 @@ import Circuit.Bimonoid (Copy (..), CopyDiscard, Dagger (..), Discard (..), Merg
 import Circuit.Category (Category (..), K (..), id, (.), (.>))
 import Circuit.Chu (ChuObject (..))
 import Circuit.Chu qualified as Chu
-import Circuit.GMachine (Poles (..), unclose)
 import Circuit.Linear (BangCopy (..), BangWeaken (..), Bot, Exponential (..), Lolli (..), WhyNotIntro (..), distL, distR, mix)
+import Circuit.Machine (Poles (..), unclose)
 import Circuit.Net (SMC)
 import Circuit.Net qualified as Net
 import Circuit.Poly (Dir, Eval (..), Mono, lens)
@@ -31,7 +31,7 @@ import Data.These (These (..), these)
 import Data.Tuple qualified as Tuple
 import Data.Void (Void, absurd)
 import GHC.TypeNats (KnownNat, natVal)
-import Prelude hiding (curry, id, read, uncurry, (.))
+import Prelude hiding (curry, id, init, read, uncurry, (.))
 import Prelude qualified as Pre
 
 -- | Forward-only Chu interpretation: objects are Chu object tags, morphisms
@@ -1310,15 +1310,15 @@ main = do
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger id id :: Dagger (->) () ()
-           in Chu.chuPair chu (write e, read e) () == Chu.chuPair chuNeg (read e, write e) ()
+           in Chu.chuPair chu (init e, emit e) () == Chu.chuPair chuNeg (emit e, init e) ()
                 && (let Dagger f g = transpose d in f () == () && g () == ()),
         check "constant self-map witness is fixed by Chu negation and Dagger transpose" $
           let e :: Poles () (->) Int Int
-              e = Poles (const ()) (const 42)
+              e = Poles (const ()) (const ()) (const 42)
               chu = Chu.pointedObj (Chu.polesAsChu e)
               chuNeg = Chu.negateChu chu
               d = Dagger (const 42) (const 42) :: Dagger (->) Int Int
-           in Chu.chuPair chu (write e, read e) 0 == Chu.chuPair chuNeg (read e, write e) 0
+           in Chu.chuPair chu (init e, emit e) 0 == Chu.chuPair chuNeg (emit e, init e) 0
                 && (let Dagger f g = transpose d in f 0 == 42 && g 0 == 42),
         -- Object-indexed Chu category (OChu) constrained combinators
         check "OChu left unitor round-trips on ChuTwo" $
